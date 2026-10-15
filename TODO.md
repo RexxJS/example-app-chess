@@ -58,7 +58,7 @@ first.
 
 | # | Step | Tests prove | REXX |
 |---|---|---|---|
-| 1.1 | `chess.ts`: constants, utilities, pieces, colours, squares (the old `chess.js`) | headless `chess_utilities`: the QUnit "utilities" cases | |
+| 1.1 | ~~`chess.ts`: constants, utilities, pieces, colours, squares (the old `chess.js`)~~ (done 2026-10-15; `getIndexFromAlgebraic` gives -1 for what is no square, where the old gave a wrong index) | headless `chess_utilities`: the QUnit "utilities" cases | |
 | 1.2 | `bitboard.ts`: 64-bit boards as two 32-bit halves (QuickJS has no 64-bit ints; the old code did the same), shifts, masks, popcount, lowest bit | headless `chess_bitboard`: the QUnit "Bitboard" cases, plus edge masks | |
 | 1.3 | `zobrist.ts`: the position hash | headless: the QUnit "Zobrist" cases; the same position reached two ways hashes alike | |
 | 1.4 | `move.ts`: a move (from, to, kind, piece, capture, promotion, castle) and its text | headless: the QUnit "Move" cases | |
