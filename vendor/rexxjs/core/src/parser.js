@@ -99,6 +99,39 @@ function removeCommentsPreservingStrings(line) {
 }
 
 // Import function parsing strategies
+// True when the blank-separated pieces of a CALL's arguments (outside quotes
+// and parentheses) include a bare binary operator, so that the whole is one
+// expression.
+const CALL_BINARY_OPERATORS = new Set(['+', '-', '*', '/', '//', '%', '**', '||', '=', '==', '<', '>', '<=', '>=', '<>', '\\=', '\\==', '¬=', '&', '|', '&&']);
+function callArgsHoldAnOperator(argsString) {
+  let piece = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  let parenLevel = 0;
+  const pieces = [];
+  for (let i = 0; i < argsString.length; i++) {
+    const char = argsString[i];
+    if ((char === '"' || char === "'") && !inQuotes) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuotes) {
+      inQuotes = false;
+      quoteChar = '';
+    } else if (char === '(' && !inQuotes) {
+      parenLevel++;
+    } else if (char === ')' && !inQuotes) {
+      parenLevel--;
+    } else if (char === ' ' && !inQuotes && parenLevel === 0) {
+      if (piece) pieces.push(piece);
+      piece = '';
+      continue;
+    }
+    piece += char;
+  }
+  if (piece) pieces.push(piece);
+  return pieces.some((p) => CALL_BINARY_OPERATORS.has(p));
+}
+
 function callIsFunctionCallExpression(expression) {
   if (typeof require !== 'undefined' && typeof module !== 'undefined') {
     // Node.js environment
@@ -611,7 +644,11 @@ function parseStatement(tokens, startIndex) {
         }
       }
       
-      const separator = hasCommas ? ',' : ' ';
+      // With no commas, the arguments are split at blanks (CALL PAIR 1 2).
+      // But CALL DOWN n - 1 is one argument, the expression n - 1, as in
+      // REXX: when any blank-separated piece is a bare operator, the whole
+      // is one expression. (-5 is a number, not an operator.)
+      const separator = hasCommas ? ',' : (callArgsHoldAnOperator(argsString) ? '\0' : ' ');
       
       let parenLevel = 0;
       
@@ -682,6 +719,18 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
+  // PROCEDURE statement: the routine it starts gets a generation of
+  // variables of its own per CALL; PROCEDURE EXPOSE a b stem. shares those
+  // with the caller (a trailing period names a whole stem)
+  const procedureMatch = line.match(/^PROCEDURE(?:\s+EXPOSE\s+(.+))?\s*$/i);
+  if (procedureMatch) {
+    const expose = procedureMatch[1] ? procedureMatch[1].trim().split(/\s+/) : [];
+    return {
+      command: addLineNumber({ type: 'PROCEDURE', expose }, token),
+      nextIndex: startIndex + 1
+    };
+  }
+
   // RETURN statement
   const returnMatch = line.match(/^RETURN(?:\s+(.*))?/i);
   if (returnMatch) {
@@ -953,33 +1002,7 @@ function parseStatement(tokens, startIndex) {
     }
 
     // Check if it's a concatenation expression with || FIRST
-    // But only if the || is not inside quoted strings or parentheses
-    const hasUnquotedPipe = (() => {
-      let inQuotes = false;
-      let quoteChar = '';
-      let parenDepth = 0;
-      for (let i = 0; i < expression.length - 1; i++) {
-        const char = expression[i];
-        const nextChar = expression[i + 1];
-
-        if ((char === '"' || char === "'") && !inQuotes) {
-          inQuotes = true;
-          quoteChar = char;
-        } else if (char === quoteChar && inQuotes) {
-          inQuotes = false;
-          quoteChar = '';
-        } else if (!inQuotes && char === '(') {
-          parenDepth++;
-        } else if (!inQuotes && char === ')') {
-          parenDepth--;
-        } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
-          return true;
-        }
-      }
-      return false;
-    })();
-
-    if (hasUnquotedPipe) {
+    if (hasTopLevelConcatenation(expression)) {
       return {
         command: addLineNumber({
           type: 'ASSIGNMENT',
@@ -1221,6 +1244,19 @@ function parseStatement(tokens, startIndex) {
     throw new Error(`EXIT UNLESS syntax error: unexpected ${separator === '.' ? 'period' : 'semicolon'} after condition. Expected comma (,) to separate condition from message. Use: EXIT UNLESS condition, 'message'`);
   }
 
+  // LEAVE and ITERATE: the innermost DO loop ends, or goes to its next
+  // iteration (a named loop is not supported)
+  const loopControlMatch = line.match(/^(LEAVE|ITERATE)(?:\s+(\w+))?\s*$/i);
+  if (loopControlMatch) {
+    if (loopControlMatch[2]) {
+      throw new Error(`${loopControlMatch[1].toUpperCase()} ${loopControlMatch[2]}: a named loop is not supported, only the innermost DO loop`);
+    }
+    return {
+      command: addLineNumber({ type: loopControlMatch[1].toUpperCase() }, token),
+      nextIndex: startIndex + 1
+    };
+  }
+
   // EXIT statement
   const exitMatch = line.match(/^EXIT(?:\s+(.+))?/i);
   if (exitMatch) {
@@ -1289,6 +1325,21 @@ function parseStatement(tokens, startIndex) {
   if (simpleAssignMatch) {
     const variableName = simpleAssignMatch[1];
     const expression = simpleAssignMatch[2];
+
+    // A concatenation (a || b) first, as the LET path has it
+    if (hasTopLevelConcatenation(expression)) {
+      return {
+        command: addLineNumber({
+          type: 'ASSIGNMENT',
+          variable: variableName,
+          expression: {
+            type: 'CONCATENATION',
+            value: expression
+          }
+        }, token),
+        nextIndex: startIndex + 1
+      };
+    }
     
     // Check if it's a quoted string
     if (expression.match(/^(['"`]).*\1$/)) {
@@ -1340,6 +1391,37 @@ function parseStatement(tokens, startIndex) {
   
   // Skip unrecognized lines
   return { command: null, nextIndex: startIndex + 1 };
+}
+
+/**
+ * Whether an expression has a || outside quotes and parentheses: a
+ * concatenation, for LET and for an assignment without LET alike.
+ * @param {string} expression - The right-hand side as written
+ * @returns {boolean}
+ */
+function hasTopLevelConcatenation(expression) {
+  let inQuotes = false;
+  let quoteChar = '';
+  let parenDepth = 0;
+  for (let i = 0; i < expression.length - 1; i++) {
+    const char = expression[i];
+    const nextChar = expression[i + 1];
+
+    if ((char === '"' || char === "'") && !inQuotes) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuotes) {
+      inQuotes = false;
+      quoteChar = '';
+    } else if (!inQuotes && char === '(') {
+      parenDepth++;
+    } else if (!inQuotes && char === ')') {
+      parenDepth--;
+    } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
+      return true;
+    }
+  }
+  return false;
 }
 
 function parseSingleLineIfStatement(tokens, startIndex, match) {
@@ -1658,6 +1740,11 @@ function parseLoopSpecification(specStr) {
     };
   }
 
+  // DO FOREVER: until LEAVE, RETURN or EXIT (and the iteration safety limit)
+  if (/^FOREVER$/i.test(spec)) {
+    return { type: 'FOREVER' };
+  }
+
   // DO UNTIL condition - loops until condition becomes true
   const untilMatch = spec.match(/^UNTIL\s+(.+)$/i);
   if (untilMatch) {
@@ -1710,6 +1797,11 @@ function parseCondition(conditionStr) {
 // is parsed as one, to be worked out before the call; anything else stays
 // text, resolved as before (a literal, a number, a name, a call, an arrow
 // function's source).
+// A binary operator at either end of a positional argument's text: the blank
+// beside it does not end the argument.
+const BINARY_OPERATOR_AT_END = /(\|\||\*\*|\/\/|==|<=|>=|<>|\\=|¬=|[+\-*\/%=<>&|])$/;
+const BINARY_OPERATOR_AT_START = /^(\|\||\*\*|\/\/|==|<=|>=|<>|\\=|¬=|[+\-*\/%=<>&|])/;
+
 function argumentOf(arg) {
   // An arrow function, a number, or a named argument (delimiter=",").
   if (arg.includes('=>') || /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(arg) || /^\w+=(?!=)/.test(arg)) return arg;
@@ -1792,8 +1884,15 @@ function parseFunctionCall(line) {
               // End of this argument
               break;
             } else if (!inQuotes && parenCount === 0 && char === ' ' && !inArrowFunction) {
-              // End of this argument (space separator) - but only if not in quotes or arrow function!
-              break;
+              // A blank ends the argument, unless it is the blank beside a
+              // binary operator (a || b, 5 + 3): then the operands and the
+              // operator are one argument, as LENGTH(a||b)'s is.
+              if (BINARY_OPERATOR_AT_END.test(argValue.trimEnd()) ||
+                  BINARY_OPERATOR_AT_START.test(remaining.substring(i).trimStart())) {
+                argValue += char;
+              } else {
+                break;
+              }
             } else {
               argValue += char;
             }

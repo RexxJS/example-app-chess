@@ -9370,14 +9370,14 @@ async function executeIfStatement(ifCommand, evaluateConditionFn, runCommandsFn)
   if (conditionResult) {
     // Execute THEN branch
     const result = await runCommandsFn(ifCommand.thenCommands);
-    if (result && result.terminated) {
+    if (result && (result.terminated || result.loopControl)) {
       return result;
     }
   } else {
     // Execute ELSE branch (if it exists)
     if (ifCommand.elseCommands.length > 0) {
       const result = await runCommandsFn(ifCommand.elseCommands);
-      if (result && result.terminated) {
+      if (result && (result.terminated || result.loopControl)) {
         return result;
       }
     }
@@ -9410,6 +9410,9 @@ async function executeDoStatement(doCommand, resolveValueFn, evaluateConditionFn
 
     case 'UNTIL':
       return await executeUntilLoop(loopSpec, doCommand.bodyCommands, evaluateConditionFn, runCommandsFn);
+
+    case 'FOREVER':
+      return await executeForeverLoop(doCommand.bodyCommands, runCommandsFn);
 
     case 'REPEAT':
       return await executeRepeatLoop(loopSpec, doCommand.bodyCommands, runCommandsFn);
@@ -9473,6 +9476,10 @@ async function executeRangeLoop(loopSpec, bodyCommands, resolveValueFn, runComma
         if (result && result.terminated) {
           return result;
         }
+        if (result && result.loopControl === 'LEAVE') {
+          break;
+        }
+        // ITERATE: on to the next iteration
       }
     } else {
       for (let i = startNum; i >= endNum; i += step) {
@@ -9481,6 +9488,10 @@ async function executeRangeLoop(loopSpec, bodyCommands, resolveValueFn, runComma
         if (result && result.terminated) {
           return result;
         }
+        if (result && result.loopControl === 'LEAVE') {
+          break;
+        }
+        // ITERATE: on to the next iteration
       }
     }
   } finally {
@@ -9533,6 +9544,10 @@ async function executeRangeLoopWithStep(loopSpec, bodyCommands, resolveValueFn, 
         if (result && result.terminated) {
           return result;
         }
+        if (result && result.loopControl === 'LEAVE') {
+          break;
+        }
+        // ITERATE: on to the next iteration
       }
     } else {
       for (let i = startNum; i >= endNum; i += stepNum) {
@@ -9541,6 +9556,10 @@ async function executeRangeLoopWithStep(loopSpec, bodyCommands, resolveValueFn, 
         if (result && result.terminated) {
           return result;
         }
+        if (result && result.loopControl === 'LEAVE') {
+          break;
+        }
+        // ITERATE: on to the next iteration
       }
     }
   } finally {
@@ -9576,6 +9595,10 @@ async function executeWhileLoop(loopSpec, bodyCommands, evaluateConditionFn, run
     if (result && result.terminated) {
       return result;
     }
+    if (result && result.loopControl === 'LEAVE') {
+      break;
+    }
+    // ITERATE: on to the next iteration
   }
 
   return null;
@@ -9603,6 +9626,39 @@ async function executeUntilLoop(loopSpec, bodyCommands, evaluateConditionFn, run
     if (result && result.terminated) {
       return result;
     }
+    if (result && result.loopControl === 'LEAVE') {
+      break;
+    }
+    // ITERATE: on to the next iteration
+  }
+
+  return null;
+}
+
+/**
+ * Execute DO FOREVER: until LEAVE, RETURN or EXIT, within the same
+ * iteration safety limit as DO WHILE
+ * @param {Array} bodyCommands - Commands to execute in loop body
+ * @param {Function} runCommandsFn - Function to execute command lists
+ * @returns {Object|null} Result object if terminated, null otherwise
+ */
+async function executeForeverLoop(bodyCommands, runCommandsFn) {
+  const maxIterations = 10000; // Safety limit
+  let iterations = 0;
+
+  while (true) {
+    if (iterations++ > maxIterations) {
+      throw new Error('DO FOREVER loop exceeded maximum iterations (safety limit)');
+    }
+
+    const result = await runCommandsFn(bodyCommands);
+    if (result && result.terminated) {
+      return result;
+    }
+    if (result && result.loopControl === 'LEAVE') {
+      break;
+    }
+    // ITERATE: on to the next iteration
   }
 
   return null;
@@ -9627,6 +9683,10 @@ async function executeRepeatLoop(loopSpec, bodyCommands, runCommandsFn) {
     if (result && result.terminated) {
       return result;
     }
+    if (result && result.loopControl === 'LEAVE') {
+      break;
+    }
+    // ITERATE: on to the next iteration
   }
   
   return null;
@@ -9669,6 +9729,10 @@ async function executeOverLoop(loopSpec, bodyCommands, resolveValueFn, runComman
         if (result && result.terminated) {
           return result;
         }
+        if (result && result.loopControl === 'LEAVE') {
+          break;
+        }
+        // ITERATE: on to the next iteration
       }
     } finally {
       // Restore original variable value or remove if it didn't exist
@@ -9721,6 +9785,10 @@ async function executeOverLoop(loopSpec, bodyCommands, resolveValueFn, runComman
       if (result && result.terminated) {
         return result;
       }
+      if (result && result.loopControl === 'LEAVE') {
+        break;
+      }
+      // ITERATE: on to the next iteration
     }
   } finally {
     // In REXX, loop variables typically persist after the loop
@@ -9763,7 +9831,7 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
       if (this && Array.isArray(whenClause.commands)) {
         for (let i = 0; i < whenClause.commands.length; i++) {
           const result = await this.executeCommand(whenClause.commands[i]);
-          if (result && result.terminated) {
+          if (result && (result.terminated || result.loopControl)) {
             return result;
           }
           if (result && result.jump) {
@@ -9776,7 +9844,7 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
       } else {
         // Fallback to provided runner if context not bound (shouldn't happen in interpreter usage)
         const result = await runCommandsFn(whenClause.commands);
-        if (result && result.terminated) return result;
+        if (result && (result.terminated || result.loopControl)) return result;
       }
       return null; // Exit SELECT after executing a WHEN clause
     }
@@ -9801,7 +9869,7 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
     if (this && Array.isArray(selectCommand.otherwiseCommands)) {
       for (let i = 0; i < selectCommand.otherwiseCommands.length; i++) {
         const result = await this.executeCommand(selectCommand.otherwiseCommands[i]);
-        if (result && result.terminated) {
+        if (result && (result.terminated || result.loopControl)) {
           return result;
         }
         if (result && result.jump) {
@@ -9813,7 +9881,7 @@ async function executeSelectStatement(selectCommand, evaluateConditionFn, runCom
       }
     } else {
       const result = await runCommandsFn(selectCommand.otherwiseCommands);
-      if (result && result.terminated) return result;
+      if (result && (result.terminated || result.loopControl)) return result;
     }
   }
   
@@ -9830,6 +9898,7 @@ if (typeof module !== 'undefined' && module.exports) {
         executeRangeLoopWithStep,
         executeWhileLoop,
         executeUntilLoop,
+        executeForeverLoop,
         executeRepeatLoop,
         executeOverLoop,
         executeSelectStatement
@@ -9847,6 +9916,7 @@ if (typeof module !== 'undefined' && module.exports) {
             executeRangeLoopWithStep,
             executeWhileLoop,
             executeUntilLoop,
+            executeForeverLoop,
             executeRepeatLoop,
             executeOverLoop,
             executeSelectStatement
@@ -13932,12 +14002,21 @@ function discoverSubroutines(commands, subroutines) {
     if (command.type === 'LABEL') {
       const subroutineName = command.name;
       const subroutineCommands = [];
-      
+      // PROCEDURE as the routine's first instruction, on the label's line
+      // (NAME: PROCEDURE) or the next: the routine has a generation of
+      // variables of its own per CALL, sharing only what EXPOSE names
+      let procedure = command.statement && command.statement.type === 'PROCEDURE'
+        ? command.statement : null;
+
       // Collect commands until next label, end of script, or RETURN
       i++; // Skip the label itself
+      if (!procedure && i < commands.length && commands[i].type === 'PROCEDURE') {
+        procedure = commands[i];
+        i++;
+      }
       while (i < commands.length) {
         const cmd = commands[i];
-        
+
         // Stop at next label or RETURN
         if (cmd.type === 'LABEL' || cmd.type === 'RETURN') {
           if (cmd.type === 'RETURN') {
@@ -13946,14 +14025,16 @@ function discoverSubroutines(commands, subroutines) {
           }
           break;
         }
-        
+
         subroutineCommands.push(cmd);
         i++;
       }
-      
+
       // Register the subroutine (store in uppercase for case-insensitive lookup)
       subroutines.set(subroutineName.toUpperCase(), {
-        commands: subroutineCommands
+        commands: subroutineCommands,
+        procedure: !!procedure,
+        expose: procedure ? procedure.expose : []
       });
       
       // Continue from current position (don't increment i again)
@@ -13979,11 +14060,90 @@ function discoverSubroutines(commands, subroutines) {
  * @param {Function} executeExternalScriptFn - Function to execute external scripts
  * @param {string} sourceFilename - Current source filename
  * @param {*} currentReturnValue - Current return value from interpreter
+ * @param {Object} externalFunctions - Functions the host supplies (and REQUIRE'd libraries register)
+ * @param {Function} resolveValueFn - Function to resolve a value (a literal, a variable, an expression), as a function call's arguments are
  * @returns {Object} Execution result with terminated flag and returnValue
  */
+/**
+ * One argument of a CALL, as a function call's would be: a quoted literal
+ * unquoted (with its escape sequences), an expression (n + 1) worked out, a
+ * variable's value, a function call's result.
+ * @param {string|Object} arg - The argument as the parser left it
+ * @param {Function} resolveValueFn - Resolves a literal, a variable
+ * @param {Function} evaluateExpressionFn - Evaluates an expression object
+ * @returns {*} The argument's value
+ */
+async function resolveCallArgument(arg, resolveValueFn, evaluateExpressionFn) {
+  if (typeof arg !== 'string') {
+    return await evaluateExpressionFn(arg);
+  }
+  const quoted = (arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"));
+  if (!quoted) {
+    const parseExpression = (typeof require !== 'undefined' && typeof module !== 'undefined')
+      ? require('./parser').parseExpression
+      : window.parseExpression;
+    const expression = parseExpression(arg);
+    if (expression) {
+      return await evaluateExpressionFn(expression);
+    }
+  }
+  return await resolveValueFn(arg);
+}
+
+/**
+ * A PROCEDURE routine's own generation of variables (TRL section 3,
+ * PROCEDURE): the caller's are set aside and the routine starts with only
+ * what EXPOSE names, a stem by its root ("stem." shares every stem.x, which
+ * live under the root's entry). What the interpreter records about the
+ * runtime itself (RUNTIME.*) is not a script variable and stays visible.
+ * @param {Map} variables - The interpreter's variables, emptied for the routine
+ * @param {Array<string>} expose - The names PROCEDURE EXPOSE listed
+ * @returns {Object} What leaveProcedureGeneration needs to restore the caller's
+ */
+function enterProcedureGeneration(variables, expose) {
+  const callerVariables = new Map(variables);
+  const shared = expose.map((name) => name.endsWith('.') ? name.slice(0, -1) : name);
+  variables.clear();
+  for (const [name, value] of callerVariables) {
+    if (name.startsWith('RUNTIME.')) {
+      variables.set(name, value);
+    }
+  }
+  for (const name of shared) {
+    if (callerVariables.has(name)) {
+      variables.set(name, callerVariables.get(name));
+    }
+  }
+  return { callerVariables, shared };
+}
+
+/**
+ * The end of a PROCEDURE routine's generation: the caller's variables come
+ * back as they were, except the EXPOSEd ones, which are as the routine
+ * left them (set, changed, or dropped).
+ * @param {Map} variables - The interpreter's variables, holding the routine's
+ * @param {Object} generation - What enterProcedureGeneration returned
+ */
+function leaveProcedureGeneration(variables, generation) {
+  const { callerVariables, shared } = generation;
+  const sharedNow = shared.map((name) => [name, variables.has(name), variables.get(name)]);
+  variables.clear();
+  for (const [name, value] of callerVariables) {
+    variables.set(name, value);
+  }
+  for (const [name, isSet, value] of sharedNow) {
+    if (isSet) {
+      variables.set(name, value);
+    } else {
+      variables.delete(name);
+    }
+  }
+}
+
 async function executeCall(command, variables, subroutines, callStack, evaluateExpressionFn,
                           pushExecutionContextFn, popExecutionContextFn, getCurrentExecutionContextFn,
-                          executeCommandsFn, isExternalScriptCallFn, executeExternalScriptFn, sourceFilename, currentReturnValue, builtInFunctions, callConvertParamsToArgsFn, argv) {
+                          executeCommandsFn, isExternalScriptCallFn, executeExternalScriptFn, sourceFilename, currentReturnValue, builtInFunctions, callConvertParamsToArgsFn, argv,
+                          externalFunctions, resolveValueFn) {
   const { subroutine, arguments: args, isVariableCall } = command;
   
   // Push subroutine call context onto execution stack immediately
@@ -14009,24 +14169,10 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
     
     // Check if this is an external script call (contains .rexx or path separators)
     if (isExternalScriptCallFn(actualSubroutineName)) {
-      // Evaluate arguments before passing to external script (same logic as internal subroutines)
+      // Its arguments worked out as a routine's own are
       const evaluatedArgs = [];
       for (let i = 0; i < args.length; i++) {
-        let argValue;
-        
-        // Evaluate argument value
-        if (typeof args[i] === 'string') {
-          if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
-              (args[i].startsWith("'") && args[i].endsWith("'"))) {
-            argValue = args[i].slice(1, -1); // Remove quotes
-          } else {
-            argValue = variables.get(args[i]) || args[i];
-          }
-        } else {
-          argValue = await evaluateExpressionFn(args[i]);  // AWAIT the evaluation of COPY() calls!
-        }
-        
-        evaluatedArgs.push(argValue);
+        evaluatedArgs.push(await resolveCallArgument(args[i], resolveValueFn, evaluateExpressionFn));
       }
       
       const result = await executeExternalScriptFn(actualSubroutineName, evaluatedArgs);
@@ -14041,26 +14187,16 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
         // Execute built-in function and set RESULT variable
         const builtInFunc = builtInFunctions[actualSubroutineName];
         
-        // Resolve arguments for built-in function - simplified approach
+        // Its arguments worked out as a function call's are: a quoted
+        // literal with its escapes, an expression (n + 1), a variable's
+        // value (0 included)
         const convertedArgs = [];
         for (let i = 0; i < args.length; i++) {
-          let argValue;
-          if (typeof args[i] === 'string') {
-            if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
-                (args[i].startsWith("'") && args[i].endsWith("'"))) {
-              argValue = args[i].slice(1, -1); // Remove quotes
-            } else {
-              // Try to get variable value first, then fallback to literal
-              argValue = variables.get(args[i]) || args[i];
-            }
-          } else {
-            argValue = args[i];
-          }
-          convertedArgs.push(argValue);
+          convertedArgs.push(await resolveCallArgument(args[i], resolveValueFn, evaluateExpressionFn));
         }
         
         // Execute the built-in function
-        const result = builtInFunc(...convertedArgs);
+        const result = await builtInFunc(...convertedArgs);
         
         // Set RESULT variable for CALL syntax
         variables.set('RESULT', result);
@@ -14069,28 +14205,36 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
         return;
       }
       
+      // A function the host supplies (externalFunctions), reachable by CALL as
+      // by SETCELL(...): its arguments resolved as a function call's are, its
+      // value in RESULT
+      const hostFunc = externalFunctions && (externalFunctions[actualSubroutineName] || externalFunctions[subroutine]);
+      if (hostFunc) {
+        const hostArgs = [];
+        for (let i = 0; i < args.length; i++) {
+          hostArgs.push(await resolveCallArgument(args[i], resolveValueFn, evaluateExpressionFn));
+        }
+        const result = await hostFunc(...hostArgs);
+        variables.set('RESULT', result);
+        popExecutionContextFn();
+        return { terminated: false, returnValue: result };
+      }
+
       throw new Error(`Subroutine '${actualSubroutineName}' not found`);
     }
     
-    // Evaluate and populate argv array for subroutine
+    // The routine's arguments, each worked out as a function call's are
+    // (a literal, an expression such as n - 1, a variable's value, 0 included)
     const evaluatedArgs = [];
     for (let i = 0; i < args.length; i++) {
-      let argValue;
-
-    // Evaluate argument value
-    if (typeof args[i] === 'string') {
-      if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
-          (args[i].startsWith("'") && args[i].endsWith("'"))) {
-        argValue = args[i].slice(1, -1); // Remove quotes
-      } else {
-        argValue = variables.get(args[i]) || args[i];
-      }
-    } else {
-      argValue = evaluateExpressionFn(args[i]);
+      evaluatedArgs.push(await resolveCallArgument(args[i], resolveValueFn, evaluateExpressionFn));
     }
 
-    evaluatedArgs.push(argValue);
-  }
+  const subroutineData = subroutines.get(actualSubroutineName);
+
+  // A PROCEDURE routine keeps the caller's arguments too: its ARG and the
+  // caller's are each of their own generation
+  const callerArgv = subroutineData.procedure && argv ? argv.slice() : null;
 
   // Update argv array for subroutine arguments
   if (argv) {
@@ -14098,35 +14242,21 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
     argv.push(...evaluatedArgs); // Populate with new arguments
   }
   
-  // Push call context for tracking (variables are shared in REXX)
+  // Push call context for tracking (variables are shared in REXX, unless
+  // the routine starts with PROCEDURE)
   callStack.push({
     subroutine: actualSubroutineName
   });
   
+  const generation = subroutineData.procedure
+    ? enterProcedureGeneration(variables, subroutineData.expose) : null;
   
   try {
-    const subroutineData = subroutines.get(actualSubroutineName);
     
     // Check if this is a built-in function
     if (subroutineData.isBuiltIn && subroutineData.func) {
-      // Call the built-in function directly with evaluated arguments
-      const evaluatedArgs = [];
-      for (let i = 0; i < args.length; i++) {
-        let argValue;
-        if (typeof args[i] === 'string') {
-          if ((args[i].startsWith('"') && args[i].endsWith('"')) ||
-              (args[i].startsWith("'") && args[i].endsWith("'"))) {
-            argValue = args[i].slice(1, -1); // Remove quotes
-          } else {
-            argValue = variables.get(args[i]) || args[i];
-          }
-        } else {
-          argValue = evaluateExpressionFn(args[i]);
-        }
-        evaluatedArgs.push(argValue);
-      }
-      
-      // Call the built-in function
+      // Call the built-in function with its arguments worked out as a
+      // routine's own are (they were resolved above)
       const result = await subroutineData.func.apply(this, evaluatedArgs);
       
       // Pop execution and call contexts
@@ -14149,8 +14279,8 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
         popExecutionContextFn();
         callStack.pop();
         
-        // Variables are shared between main and subroutines in REXX
-        // So no variable restoration needed - changes persist
+        // A routine without PROCEDURE shares the caller's variables, so its
+        // changes persist; a PROCEDURE routine's generation ends in finally
         return { terminated: false, returnValue: result.value };
       }
       
@@ -14167,6 +14297,14 @@ async function executeCall(command, variables, subroutines, callStack, evaluateE
     // Only pop the call stack (which is separate from execution stack)
     callStack.pop();
     throw error;
+  } finally {
+    if (generation) {
+      leaveProcedureGeneration(variables, generation);
+    }
+    if (callerArgv) {
+      argv.length = 0;
+      argv.push(...callerArgv);
+    }
   }
 }
 
@@ -16825,6 +16963,10 @@ class RexxInterpreter {
             return result;
           }
         }
+        if (result && result.loopControl) {
+          // LEAVE or ITERATE: out to the innermost DO loop
+          return result;
+        }
         if (result && result.skipCommands) {
           // Handle LINES command skipping - skip the next N commands
           i += result.skipCommands;
@@ -16986,7 +17128,9 @@ class RexxInterpreter {
             this.returnValue,
             this.builtInFunctions,
             callConvertParamsToArgs,
-            this.argv  // Pass argv array reference for efficient argument storage
+            this.argv,  // Pass argv array reference for efficient argument storage
+            this.externalFunctions,
+            this.resolveValue.bind(this)
           );
           if (callResult && callResult.terminated) {
             return callResult;
@@ -16999,6 +17143,11 @@ class RexxInterpreter {
           
         case 'RETURN':
           return await this.executeReturn(command);
+          
+        case 'PROCEDURE':
+          // Reached only by falling or jumping into a routine: a CALLed
+          // routine's PROCEDURE is taken by discoverSubroutines (TRL error 17)
+          throw new Error('Unexpected PROCEDURE: it is valid only as the first instruction of a routine reached by CALL');
           
         case 'TRACE':
           this.traceMode = traceFormattingUtils.executeTrace(command, this.traceOutput, this.addTraceOutput.bind(this));
@@ -17029,7 +17178,9 @@ class RexxInterpreter {
                 this.returnValue,
                 this.builtInFunctions,
                 callConvertParamsToArgs,
-                this.argv  // Pass argv array reference for efficient argument storage
+                this.argv,  // Pass argv array reference for efficient argument storage
+                this.externalFunctions,
+                this.resolveValue.bind(this)
               );
               const variableName = await this.interpolateString(command.variable);
               
@@ -17232,6 +17383,9 @@ class RexxInterpreter {
         
         case 'IF':
           const ifResult = await controlFlowUtils.executeIfStatement(command, this.evaluateCondition.bind(this), this.run.bind(this));
+          if (ifResult && ifResult.loopControl) {
+            return ifResult;
+          }
           if (ifResult && ifResult.terminated) {
             if (ifResult.type === 'RETURN') {
               // RETURN inside IF should bubble up to caller
@@ -17271,6 +17425,9 @@ class RexxInterpreter {
         
         case 'SELECT':
           const selectResult = await controlFlowUtils.executeSelectStatement.call(this, command, this.evaluateCondition.bind(this), this.run.bind(this));
+          if (selectResult && selectResult.loopControl) {
+            return selectResult;
+          }
           if (selectResult && selectResult.terminated) {
             if (selectResult.type === 'RETURN') {
               // RETURN inside SELECT should bubble up to caller
@@ -17288,6 +17445,12 @@ class RexxInterpreter {
         case 'EXIT':
           await this.executeExitStatement(command);
           break;
+
+        case 'LEAVE':
+        case 'ITERATE':
+          // The innermost DO loop takes it (interpreter-control-flow.js); the
+          // statements after it in the block do not run
+          return { loopControl: command.type };
 
         case 'EXIT_UNLESS':
           await this.executeExitUnlessStatement(command);
@@ -22903,6 +23066,39 @@ function removeCommentsPreservingStrings(line) {
 }
 
 // Import function parsing strategies
+// True when the blank-separated pieces of a CALL's arguments (outside quotes
+// and parentheses) include a bare binary operator, so that the whole is one
+// expression.
+const CALL_BINARY_OPERATORS = new Set(['+', '-', '*', '/', '//', '%', '**', '||', '=', '==', '<', '>', '<=', '>=', '<>', '\\=', '\\==', '¬=', '&', '|', '&&']);
+function callArgsHoldAnOperator(argsString) {
+  let piece = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  let parenLevel = 0;
+  const pieces = [];
+  for (let i = 0; i < argsString.length; i++) {
+    const char = argsString[i];
+    if ((char === '"' || char === "'") && !inQuotes) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuotes) {
+      inQuotes = false;
+      quoteChar = '';
+    } else if (char === '(' && !inQuotes) {
+      parenLevel++;
+    } else if (char === ')' && !inQuotes) {
+      parenLevel--;
+    } else if (char === ' ' && !inQuotes && parenLevel === 0) {
+      if (piece) pieces.push(piece);
+      piece = '';
+      continue;
+    }
+    piece += char;
+  }
+  if (piece) pieces.push(piece);
+  return pieces.some((p) => CALL_BINARY_OPERATORS.has(p));
+}
+
 function callIsFunctionCallExpression(expression) {
   if (typeof require !== 'undefined' && typeof module !== 'undefined') {
     // Node.js environment
@@ -23415,7 +23611,11 @@ function parseStatement(tokens, startIndex) {
         }
       }
       
-      const separator = hasCommas ? ',' : ' ';
+      // With no commas, the arguments are split at blanks (CALL PAIR 1 2).
+      // But CALL DOWN n - 1 is one argument, the expression n - 1, as in
+      // REXX: when any blank-separated piece is a bare operator, the whole
+      // is one expression. (-5 is a number, not an operator.)
+      const separator = hasCommas ? ',' : (callArgsHoldAnOperator(argsString) ? '\0' : ' ');
       
       let parenLevel = 0;
       
@@ -23486,6 +23686,18 @@ function parseStatement(tokens, startIndex) {
     };
   }
   
+  // PROCEDURE statement: the routine it starts gets a generation of
+  // variables of its own per CALL; PROCEDURE EXPOSE a b stem. shares those
+  // with the caller (a trailing period names a whole stem)
+  const procedureMatch = line.match(/^PROCEDURE(?:\s+EXPOSE\s+(.+))?\s*$/i);
+  if (procedureMatch) {
+    const expose = procedureMatch[1] ? procedureMatch[1].trim().split(/\s+/) : [];
+    return {
+      command: addLineNumber({ type: 'PROCEDURE', expose }, token),
+      nextIndex: startIndex + 1
+    };
+  }
+
   // RETURN statement
   const returnMatch = line.match(/^RETURN(?:\s+(.*))?/i);
   if (returnMatch) {
@@ -23757,33 +23969,7 @@ function parseStatement(tokens, startIndex) {
     }
 
     // Check if it's a concatenation expression with || FIRST
-    // But only if the || is not inside quoted strings or parentheses
-    const hasUnquotedPipe = (() => {
-      let inQuotes = false;
-      let quoteChar = '';
-      let parenDepth = 0;
-      for (let i = 0; i < expression.length - 1; i++) {
-        const char = expression[i];
-        const nextChar = expression[i + 1];
-
-        if ((char === '"' || char === "'") && !inQuotes) {
-          inQuotes = true;
-          quoteChar = char;
-        } else if (char === quoteChar && inQuotes) {
-          inQuotes = false;
-          quoteChar = '';
-        } else if (!inQuotes && char === '(') {
-          parenDepth++;
-        } else if (!inQuotes && char === ')') {
-          parenDepth--;
-        } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
-          return true;
-        }
-      }
-      return false;
-    })();
-
-    if (hasUnquotedPipe) {
+    if (hasTopLevelConcatenation(expression)) {
       return {
         command: addLineNumber({
           type: 'ASSIGNMENT',
@@ -24025,6 +24211,19 @@ function parseStatement(tokens, startIndex) {
     throw new Error(`EXIT UNLESS syntax error: unexpected ${separator === '.' ? 'period' : 'semicolon'} after condition. Expected comma (,) to separate condition from message. Use: EXIT UNLESS condition, 'message'`);
   }
 
+  // LEAVE and ITERATE: the innermost DO loop ends, or goes to its next
+  // iteration (a named loop is not supported)
+  const loopControlMatch = line.match(/^(LEAVE|ITERATE)(?:\s+(\w+))?\s*$/i);
+  if (loopControlMatch) {
+    if (loopControlMatch[2]) {
+      throw new Error(`${loopControlMatch[1].toUpperCase()} ${loopControlMatch[2]}: a named loop is not supported, only the innermost DO loop`);
+    }
+    return {
+      command: addLineNumber({ type: loopControlMatch[1].toUpperCase() }, token),
+      nextIndex: startIndex + 1
+    };
+  }
+
   // EXIT statement
   const exitMatch = line.match(/^EXIT(?:\s+(.+))?/i);
   if (exitMatch) {
@@ -24093,6 +24292,21 @@ function parseStatement(tokens, startIndex) {
   if (simpleAssignMatch) {
     const variableName = simpleAssignMatch[1];
     const expression = simpleAssignMatch[2];
+
+    // A concatenation (a || b) first, as the LET path has it
+    if (hasTopLevelConcatenation(expression)) {
+      return {
+        command: addLineNumber({
+          type: 'ASSIGNMENT',
+          variable: variableName,
+          expression: {
+            type: 'CONCATENATION',
+            value: expression
+          }
+        }, token),
+        nextIndex: startIndex + 1
+      };
+    }
     
     // Check if it's a quoted string
     if (expression.match(/^(['"`]).*\1$/)) {
@@ -24144,6 +24358,37 @@ function parseStatement(tokens, startIndex) {
   
   // Skip unrecognized lines
   return { command: null, nextIndex: startIndex + 1 };
+}
+
+/**
+ * Whether an expression has a || outside quotes and parentheses: a
+ * concatenation, for LET and for an assignment without LET alike.
+ * @param {string} expression - The right-hand side as written
+ * @returns {boolean}
+ */
+function hasTopLevelConcatenation(expression) {
+  let inQuotes = false;
+  let quoteChar = '';
+  let parenDepth = 0;
+  for (let i = 0; i < expression.length - 1; i++) {
+    const char = expression[i];
+    const nextChar = expression[i + 1];
+
+    if ((char === '"' || char === "'") && !inQuotes) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuotes) {
+      inQuotes = false;
+      quoteChar = '';
+    } else if (!inQuotes && char === '(') {
+      parenDepth++;
+    } else if (!inQuotes && char === ')') {
+      parenDepth--;
+    } else if (!inQuotes && parenDepth === 0 && char === '|' && nextChar === '|') {
+      return true;
+    }
+  }
+  return false;
 }
 
 function parseSingleLineIfStatement(tokens, startIndex, match) {
@@ -24462,6 +24707,11 @@ function parseLoopSpecification(specStr) {
     };
   }
 
+  // DO FOREVER: until LEAVE, RETURN or EXIT (and the iteration safety limit)
+  if (/^FOREVER$/i.test(spec)) {
+    return { type: 'FOREVER' };
+  }
+
   // DO UNTIL condition - loops until condition becomes true
   const untilMatch = spec.match(/^UNTIL\s+(.+)$/i);
   if (untilMatch) {
@@ -24514,6 +24764,11 @@ function parseCondition(conditionStr) {
 // is parsed as one, to be worked out before the call; anything else stays
 // text, resolved as before (a literal, a number, a name, a call, an arrow
 // function's source).
+// A binary operator at either end of a positional argument's text: the blank
+// beside it does not end the argument.
+const BINARY_OPERATOR_AT_END = /(\|\||\*\*|\/\/|==|<=|>=|<>|\\=|¬=|[+\-*\/%=<>&|])$/;
+const BINARY_OPERATOR_AT_START = /^(\|\||\*\*|\/\/|==|<=|>=|<>|\\=|¬=|[+\-*\/%=<>&|])/;
+
 function argumentOf(arg) {
   // An arrow function, a number, or a named argument (delimiter=",").
   if (arg.includes('=>') || /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(arg) || /^\w+=(?!=)/.test(arg)) return arg;
@@ -24596,8 +24851,15 @@ function parseFunctionCall(line) {
               // End of this argument
               break;
             } else if (!inQuotes && parenCount === 0 && char === ' ' && !inArrowFunction) {
-              // End of this argument (space separator) - but only if not in quotes or arrow function!
-              break;
+              // A blank ends the argument, unless it is the blank beside a
+              // binary operator (a || b, 5 + 3): then the operands and the
+              // operator are one argument, as LENGTH(a||b)'s is.
+              if (BINARY_OPERATOR_AT_END.test(argValue.trimEnd()) ||
+                  BINARY_OPERATOR_AT_START.test(remaining.substring(i).trimStart())) {
+                argValue += char;
+              } else {
+                break;
+              }
             } else {
               argValue += char;
             }
