@@ -26,9 +26,10 @@ app/
                     move.ts, position.ts, parser.ts (the engine, ported from
                     src/*.js, stage 1 of TODO.md), game.ts (a game over a
                     position: moves, undo/redo, the result), commands.ts
-                    (every action a command: id, label, params), rexxjs.js
-                    (RexxJS, generated); to come in TODO.md's order:
-                    control.ts, described.ts, script.ts, ai.ts
+                    (every action a command: id, label, params), control.ts
+                    and described.ts (the REXX functions, each described),
+                    rexxjs.js (RexxJS, generated); to come in TODO.md's
+                    order: script.ts, ai.ts
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move
