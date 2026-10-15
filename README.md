@@ -22,13 +22,16 @@ app/
   app.json          the installed app's manifest: its start page and grants
                     (documents, the control bus)
   chess.ts          the page
-  chess/            the game with no ui, to come in TODO.md's order:
-                    chess.ts, bitboard.ts, zobrist.ts, move.ts, position.ts,
-                    parser.ts (the engine, ported from src/*.js), then
-                    game.ts, commands.ts, control.ts, described.ts, script.ts
+  chess/            the game with no ui: chess.ts, bitboard.ts, zobrist.ts,
+                    move.ts, position.ts, parser.ts (the engine, ported from
+                    src/*.js, stage 1 of TODO.md), rexxjs.js (RexxJS,
+                    generated); to come in TODO.md's order: game.ts,
+                    commands.ts, control.ts, described.ts, script.ts, ai.ts
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
-                    lines as verdicts; chess -> ../../app/chess; lib/check.ts
+                    lines as verdicts (perft the oracle for the move
+                    generator, chess_speed its timing against a budget);
+                    chess -> ../../app/chess; lib/check.ts
   specs/            spec_app_chess*.ae: the page in sae-driver
   lib/              chessdriver.ae: the specs' verbs for the page
 tools/bundle-rexxjs.mjs   re-vendors RexxJS (below)
