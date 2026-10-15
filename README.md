@@ -31,6 +31,8 @@ tests/
                     lines as verdicts; chess -> ../../app/chess; lib/check.ts
   specs/            spec_app_chess*.ae: the page in sae-driver
   lib/              chessdriver.ae: the specs' verbs for the page
+tools/bundle-rexxjs.mjs   re-vendors RexxJS (below)
+vendor/rexxjs/      RexxJS, a copy: its interpreter and parser, UPSTREAM the commit
 run-tests.sh        all of it, through the sae beside this checkout
 ```
 
@@ -58,8 +60,20 @@ runs the headless tests and the specs, one line of PASS or FAIL each, with
 logs under `target/run-tests/`. `./run-tests.sh headless` runs only the
 headless tests; `./run-tests.sh spec_app_chess` only that spec.
 `SAE_DIR=...` picks another sae checkout. On Linux with no display it runs
-under `xvfb-run`. The REXX pieces (stage 0.2 on) need `node` and RexxJS
-checked out beside this repository (`RexxJS -> ../RexxJS`).
+under `xvfb-run`. The REXX scripts' spec and the MCP server (stage 2) will
+need `node` and RexxJS checked out beside this repository
+(`RexxJS -> ../RexxJS`).
+
+### Re-vendoring RexxJS
+
+```bash
+node tools/bundle-rexxjs.mjs ../RexxJS
+```
+
+copies RexxJS's interpreter and parser into `vendor/rexxjs/` (recording the
+commit in `UPSTREAM`) and regenerates `app/chess/rexxjs.js`, the one module
+the app imports. RexxJS is the canonical source of the REXX language;
+changes to it go there first.
 
 ## The old app
 
