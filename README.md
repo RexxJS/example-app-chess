@@ -1,64 +1,84 @@
-# JavaScript Chess
+# Chess: a chess program you can script in REXX
 
-This program is a JavaScript implementation of the board game [Chess](http://en.wikipedia.org/wiki/Chess), with a computer player opponent. All move types are supported, including en passant, castling and promotion.
+Kaj Björklund's [JavaScript Chess](https://github.com/kbjorklu/chess) (MIT,
+2013: bitboards, a full move generator with castling, en passant and
+promotion, an alpha-beta computer player), being carried over to
+[sae](https://github.com/aether-lang-dev/sae-it-aint-so) so it runs
+natively on aether-ui (GTK4, AppKit, Win32) with no DOM, every action a
+command, and every command reachable from REXX: scripts in the app, sae's
+control bus from any program on the machine, and an MCP server. The plan,
+in stages, each step one tested commit: [TODO.md](TODO.md).
 
-Try it out [here](http://www.iki.fi/kbjorklu/chess/). Usage is shown below the chessboard. At least Internet Explorer (8 or later), Chrome and Firefox should work.
+| Folder | What it is | Licence |
+|---|---|---|
+| [`app/`](app/) | **The chess app, current.** A sae app in sae's TypeScript dialect: `app.json` (its manifest), `chess.ts` (the page), `chess/` (the game with no ui: the engine ported from `src/`, then the game, its commands and its REXX functions). | MIT |
+| [`tests/`](tests/) | `headless/` (the model, on sae's lowerer harness), `specs/` (the page, through sae-driver), `lib/` (the specs' driver verbs). | MIT |
+| `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md), [CHESS_COMMANDS.md](CHESS_COMMANDS.md)). It stays until the sae app has taken in what it did, then goes to history. | MIT |
 
-# Code Structure
+## The sae app
 
-Source files are placed in the `src` directory. Minification and linting files are placed in the `build` directory. Source file contents:
+```
+app/
+  app.json          the installed app's manifest: its start page and grants
+                    (documents, the control bus)
+  chess.ts          the page
+  chess/            the game with no ui, to come in TODO.md's order:
+                    chess.ts, bitboard.ts, zobrist.ts, move.ts, position.ts,
+                    parser.ts (the engine, ported from src/*.js), then
+                    game.ts, commands.ts, control.ts, described.ts, script.ts
+tests/
+  headless/         chess_*.ts: the model, one file per area, "// expect:"
+                    lines as verdicts; chess -> ../../app/chess; lib/check.ts
+  specs/            spec_app_chess*.ae: the page in sae-driver
+  lib/              chessdriver.ae: the specs' verbs for the page
+run-tests.sh        all of it, through the sae beside this checkout
+```
 
-* `chess.js`: Constants, utilities and the Chess namespace.
-* `bitboard.js`: 64-bit bit twiddling tools.
-* `zobrist.js`: Game state hash calculator. Currently only used for the threefold repetition rule, but will be used in the transposition table implementation.
-* `move.js`: Piece movement representation.
-* `position.js`: Chess game state and mutation.
-* `parser.js`: Parser for various Chess notations.
-* `ai.js`: Artificial intelligence, i.e. computer opponent. Basic alpha-beta pruned minimax with a simple evaluation function.
-* `ui.js`: User interface code.
-* `chess.include.js`: Includes all of the above files.
-* `chess.css`: User interface style.
-* `chess.ico`: Icon.
-* `chess.html`: Main game file.
-* `test.js`: Automated tests.
-* `test.html`: Automated test runner.
+### Running it
 
-# Building
+With sae checked out and built beside this repository (`sae -> ../sae`;
+`./build.sh` there, and `AETHER_UI_WITH_DRIVER=1 ./build.sh` for the
+driver the specs use):
 
-To compile the minified version using `compile.sh` in the `build` directory, you need [bash](http://git-scm.com/download/win) and the [Closure compiler](https://developers.google.com/closure/compiler/). You may need to adjust the `.jar` location in `compile.sh`. Compiled files are placed in the top-level directory.
+```bash
+../sae/target/build/bin/sae --app app
+```
 
-To lint using `lint.sh` in the build directory, you need bash and [JavaScript Lint](http://www.javascriptlint.com/). You may need to adjust lint's path in `lint.sh`.
+`--control-bus` after it switches on the control bus, so other programs on
+this machine can drive the game (sae's `docs/control-bus.md`), once stage 2
+of TODO.md has it listening.
 
-To run the tests, open `test.html` in the `src` directory.
+### Testing it
 
-# TODO
+```bash
+./run-tests.sh
+```
 
-* Static exchange evaluation
-* Transposition table
-* Iterative deepening
-* Negamax formulation
-* AI randomness
-* Take game phase into account in evaluation
-* Take mobility into account in evaluation
-* Killer heuristic
-* Late-check castling legality
-* Tie-detection
-* Move pieces without drag and drop
-* Underpromotion
-* Show captured pieces in the UI
-* Don't hardcode board target div to UI
-* UI for loading game state from parsable Chess notation(s)
-* More tests
+runs the headless tests and the specs, one line of PASS or FAIL each, with
+logs under `target/run-tests/`. `./run-tests.sh headless` runs only the
+headless tests; `./run-tests.sh spec_app_chess` only that spec.
+`SAE_DIR=...` picks another sae checkout. On Linux with no display it runs
+under `xvfb-run`. The REXX pieces (stage 0.2 on) need `node` and RexxJS
+checked out beside this repository (`RexxJS -> ../RexxJS`).
 
-# License
+## The old app
 
-The Chess implementation is distributed under the [MIT](https://github.com/kbjorklu/chess/blob/master/LICENSE) license. See accompanying LICENSE file for details.
+The engine's files in `src/` are described in the old README's terms:
+`chess.js` (constants and utilities), `bitboard.js` (64-bit bit twiddling as
+two 32-bit halves), `zobrist.js` (the position hash), `move.js` (a move),
+`position.js` (the game state, move generation, make and unmake),
+`parser.js` (algebraic notation), `ai.js` (alpha-beta with a simple
+evaluation), `ui.js` (the jQuery board), `test.js` (QUnit tests, run by
+`src/test.html`). `build/compile.sh` minified it with the Closure compiler
+to `chess.min.js`; `webpack.config.js` and `src-tauri/` wrap it for Tauri;
+`npm run build` builds `dist/`. The old README's to-do list (static
+exchange evaluation, a transposition table, iterative deepening, killer
+moves, underpromotion, captured pieces shown, loading a game from notation)
+is folded into [TODO.md](TODO.md)'s stages 3 to 5.
 
-Third-party components are distributed/used under their respective license:
+## Licence
 
-* jQuery: [MIT](https://github.com/jquery/jquery/blob/master/MIT-LICENSE.txt) (used via jQuery CDN)
-* jQuery UI: [MIT](https://github.com/jquery/jquery-ui/blob/master/MIT-LICENSE.txt) (used via jQuery CDN)
-* jQuery UI Touch Punch: [MIT](https://github.com/furf/jquery-ui-touch-punch/blob/master/jquery.ui.touch-punch.min.js) (used via CloudFlare CDN)
-* Augment.js: [MIT](https://github.com/olivernn/augment.js/blob/master/LICENSE) (used via CloudFlare CDN)
-* QUnit: [MIT](https://github.com/jquery/qunit/blob/master/MIT-LICENSE.txt) (used via jQuery CDN)
-* The jQuery extern file in the build directory: [Apache 2](http://www.apache.org/licenses/LICENSE-2.0)
+MIT. The engine is Kaj Björklund's, copyright 2013 ([LICENSE](LICENSE)); the
+sae app and its tests are the Aether contributors'. The old app's
+third-party pieces (jQuery, jQuery UI, Touch Punch, QUnit) are MIT and are
+not part of the sae app.

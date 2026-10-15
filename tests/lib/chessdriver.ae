@@ -1,0 +1,10 @@
+// chessdriver.ae — verbs for the chess app's specs (app/chess.ts), on
+// saedriver and aether-ui's uidriver. Grows with the page: the board, the
+// move list and the buttons each get their verbs as TODO.md's stage 3 lands.
+
+exports(wait_ready)
+
+import saedriver as b
+
+// The page is up: its title text is shown. 1 when it is, 0 after the wait.
+wait_ready() -> int { return b.wait_for_text("Chess") }

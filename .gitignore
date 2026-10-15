@@ -1,0 +1,7 @@
+# sae test output (run-tests.sh), and the lowered headless tests
+target/
+
+# The old DOM app's build (webpack, Tauri)
+src-tauri/target/
+.DS_Store
+*.log

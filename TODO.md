@@ -50,7 +50,7 @@ first.
 
 | # | Step | Tests prove | REXX |
 |---|---|---|---|
-| 0.1 | The sae app skeleton beside the old one: `app/app.json` (name Chess, start `/chess`, grants: documents, controlBus), `app/chess.ts` (an empty page), `app/chess/`, `tests/headless/`, `tests/specs/`, `tests/lib/`, `run-tests.sh` running sae's harnesses through `sae -> ../sae`, `RexxJS -> ../RexxJS`; `AGENTS.md`, `README.md` rewritten for it | `./run-tests.sh`: one headless test and one spec pass, green from the first commit | |
+| 0.1 | ~~The sae app skeleton beside the old one: `app/app.json` (name Chess, start `/chess`, grants: documents, controlBus), `app/chess.ts` (an empty page), `app/chess/`, `tests/headless/`, `tests/specs/`, `tests/lib/`, `run-tests.sh` running sae's harnesses through `sae -> ../sae`, `RexxJS -> ../RexxJS`; `AGENTS.md`, `README.md` rewritten for it~~ (done 2026-10-15: `tests/headless/chess_harness.ts`, `tests/specs/spec_app_chess.ae` on `tests/lib/chessdriver.ae`) | `./run-tests.sh`: one headless test and one spec pass, green from the first commit | |
 | 0.2 | RexxJS vendored: `tools/bundle-rexxjs.mjs` (from spraedsheet), `vendor/rexxjs/` with `UPSTREAM`, `app/chess/rexxjs.js` generated; a headless test runs a one-line REXX program on it | headless: `SAY 1+1` gives 2 on the vendored interpreter | the interpreter itself |
 | 0.3 | Licensing: `LICENSE` (MIT, Kaj Björklund 2013 for the engine; the app and its tests MIT, Aether contributors), `LICENSING.md` as the spreadsheet's; the RexxJS copy's licence beside it | a check that every source file's header names its origin where it is a port | |
 
