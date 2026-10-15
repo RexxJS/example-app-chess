@@ -11,7 +11,8 @@
 #
 #   SAE_DIR=/elsewhere/sae ./run-tests.sh    another sae checkout
 #
-# headless: tests/headless/*.ts, the engine, the game and the commands with
+# headers: tools/check-headers.sh, every port under app/chess names its
+# origin (LICENSING.md). headless: tests/headless/*.ts, the engine, the game and the commands with
 # no ui, run by sae's lowerer harness (sae/lower/run-tests.sh --mod) on
 # sae's QuickJS. The specs (tests/specs/) drive the app in sae-driver
 # through sae's tests/run_spec.sh, with this repo's tests/lib first on the
@@ -38,6 +39,7 @@ LOGS=$T/run-tests
 rm -rf "$LOGS" "$T/chess-appdata"; mkdir -p "$LOGS"
 # label | environment (space-separated NAME=value) | command
 TABLE="
+headers||headers
 headless||headless
 spec_app_chess|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess
 "
@@ -55,6 +57,7 @@ for line in $TABLE; do
     log="$LOGS/$label.log"
     set -- $cmd
     case "$1" in
+        headers) set -- "$ROOT/tools/check-headers.sh" ;;
         headless) set -- env SAE_LOWER_OUT="$T/lower-tests" "$SAE/lower/run-tests.sh" --mod "$ROOT/tests/headless" ;;
         spec) set -- env SAE_TEST_LIB_DIR="$ROOT/tests/lib" \
                   "$SAE/tests/run_spec.sh" "$ROOT/tests/specs/$2.ae" "$ROOT/app" ;;

@@ -56,7 +56,9 @@ of TODO.md has it listening.
 ./run-tests.sh
 ```
 
-runs the headless tests and the specs, one line of PASS or FAIL each, with
+runs the header check (`tools/check-headers.sh`: every port names its
+origin, [LICENSING.md](LICENSING.md)), the headless tests and the specs,
+one line of PASS or FAIL each, with
 logs under `target/run-tests/`. `./run-tests.sh headless` runs only the
 headless tests; `./run-tests.sh spec_app_chess` only that spec.
 `SAE_DIR=...` picks another sae checkout. On Linux with no display it runs
@@ -92,7 +94,8 @@ is folded into [TODO.md](TODO.md)'s stages 3 to 5.
 
 ## Licence
 
-MIT. The engine is Kaj Björklund's, copyright 2013 ([LICENSE](LICENSE)); the
-sae app and its tests are the Aether contributors'. The old app's
+MIT ([LICENSING.md](LICENSING.md)). The engine is Kaj Björklund's, copyright
+2013, and its ports keep that ([LICENSE](LICENSE)); the sae app and its
+tests are the Aether contributors'. The old app's
 third-party pieces (jQuery, jQuery UI, Touch Punch, QUnit) are MIT and are
 not part of the sae app.
