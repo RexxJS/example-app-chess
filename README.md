@@ -24,8 +24,9 @@ app/
   chess.ts          the page
   chess/            the game with no ui: chess.ts, bitboard.ts, zobrist.ts,
                     move.ts, position.ts, parser.ts (the engine, ported from
-                    src/*.js, stage 1 of TODO.md), rexxjs.js (RexxJS,
-                    generated); to come in TODO.md's order: game.ts,
+                    src/*.js, stage 1 of TODO.md), game.ts (a game over a
+                    position: moves, undo/redo, the result), rexxjs.js
+                    (RexxJS, generated); to come in TODO.md's order:
                     commands.ts, control.ts, described.ts, script.ts, ai.ts
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
