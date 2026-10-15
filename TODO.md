@@ -59,7 +59,7 @@ first.
 | # | Step | Tests prove | REXX |
 |---|---|---|---|
 | 1.1 | ~~`chess.ts`: constants, utilities, pieces, colours, squares (the old `chess.js`)~~ (done 2026-10-15; `getIndexFromAlgebraic` gives -1 for what is no square, where the old gave a wrong index) | headless `chess_utilities`: the QUnit "utilities" cases | |
-| 1.2 | `bitboard.ts`: 64-bit boards as two 32-bit halves (QuickJS has no 64-bit ints; the old code did the same), shifts, masks, popcount, lowest bit | headless `chess_bitboard`: the QUnit "Bitboard" cases, plus edge masks | |
+| 1.2 | ~~`bitboard.ts`: 64-bit boards as two 32-bit halves (QuickJS has no 64-bit ints; the old code did the same), shifts, masks, popcount, lowest bit~~ (done 2026-10-15; the knight and king tables and the shifts across the halves tested too, which the old tests left as TODO) | headless `chess_bitboard`: the QUnit "Bitboard" cases, plus edge masks | |
 | 1.3 | `zobrist.ts`: the position hash | headless: the QUnit "Zobrist" cases; the same position reached two ways hashes alike | |
 | 1.4 | `move.ts`: a move (from, to, kind, piece, capture, promotion, castle) and its text | headless: the QUnit "Move" cases | |
 | 1.5 | `position.ts`: the game state, move generation (pseudo-legal and legal, captures only), make and unmake, castling rights, en passant, promotion, check, the fifty-move rule, threefold repetition, insufficient material, status (in progress, check, checkmate, stalemate, the draws) | headless `chess_position`: the QUnit cases and **perft** to depth 4 from the start and from the standard test positions (Kiwipete and the rest), node counts exact; hashing after make/unmake | |
