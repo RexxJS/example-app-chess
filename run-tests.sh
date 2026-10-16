@@ -21,7 +21,9 @@
 # spec_app_chess_rexx runs rexx/'s scripts against it, on node and the
 # RexxJS beside this checkout (./RexxJS -> ../RexxJS). mcp: the MCP
 # server's protocol (tests/mcp/, node --test, a stand-in for sae-bus);
-# spec_app_chess_mcp drives the app through that server, with node. On Linux with no
+# spec_app_chess_mcp drives the app through that server, with node.
+# native: tests/native/check.sh, the engine in Aether (native/engine.ae)
+# built with ae and held to the TypeScript one, node for node (needs ae). On Linux with no
 # display it reruns itself under xvfb-run.
 ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT" || exit 1
@@ -46,6 +48,7 @@ TABLE="
 headers||headers
 commands-doc||commands-doc
 headless||headless
+native||native
 spec_app_chess|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess
 spec_app_chess_board|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-board-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_board
 spec_app_chess_moves|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-moves-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_moves
@@ -91,6 +94,7 @@ for line in $TABLE; do
         headers) set -- "$ROOT/tools/check-headers.sh" ;;
         commands-doc) set -- node --no-warnings "$ROOT/tools/gen-commands.mjs" --check ;;
         mcp) set -- node --test "$ROOT/tests/mcp/" ;;
+        native) set -- "$ROOT/tests/native/check.sh" ;;
         headless) set -- env SAE_LOWER_OUT="$T/lower-tests" "$SAE/lower/run-tests.sh" --mod "$ROOT/tests/headless" ;;
         spec) set -- env SAE_TEST_LIB_DIR="$ROOT/tests/lib" \
                   "$SAE/tests/run_spec.sh" "$ROOT/tests/specs/$2.ae" "$ROOT/app" ;;
