@@ -1,0 +1,1 @@
+{"program": "/* Play the first legal capture, or the first move: a model's loop next to the game */\nm = LISTLEGALMOVES()\npick = m.1.san\nDO i = 1 TO m.0\n  IF m.i.capture = 1 THEN DO\n    pick = m.i.san\n    LEAVE\n  END\nEND\nr = MOVESAN(pick)\nSAY \"chose\" r \"of\" m.0\nLET RESULT = GETFEN()"}

@@ -1,0 +1,138 @@
+// spec_app_chess_mcp.ae — an AI client plays the app through the MCP server
+// (mcp/chess-mcp.js) over its control bus, as Claude would: tests/mcp/drive.js
+// makes one MCP tool call apiece, through the server and sae's sae-bus, and
+// what it did must be on the page. First the tools a client is offered by
+// default (JSON in, nothing to escape), then chess_run's REXX, offered with
+// --tools=all. The server's protocol itself is tested without the app by
+// tests/mcp/server.test.js.
+//   ./run-tests.sh spec_app_chess_mcp
+// Needs node and sae's target/sae-bus.
+import std.spec
+import std.string
+import std.list
+import std.os
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+// One tool call's line of JSON ({isError, result}) and the client's status.
+// `env` is prepended to the command ("" for none); `args` is JSON, or
+// @tests/mcp/args/<file>.json.
+mcp_env_(env: string, tool: string, args: string) -> (string, int) {
+    root = os_getenv("CHESS_ROOT")
+    argv = list.new()
+    list.add(argv, "-c")
+    list.add(argv, "cd \"$0\" && ${env} node tests/mcp/drive.js \"$1\" \"$2\" 2>&1")
+    list.add(argv, root)
+    list.add(argv, tool)
+    list.add(argv, args)
+    out, status, _err = os.run_capture("sh", argv, null)
+    return out, status
+}
+
+mcp_(tool: string, args: string) -> (string, int) {
+    out, status = mcp_env_("", tool, args)
+    return out, status
+}
+
+// A call that must work, and its line.
+ok_env_(env: string, tool: string, args: string, what: string) -> string {
+    out, status = mcp_env_(env, tool, args)
+    spec.assert_eq(status, 0, "${what}: the client exits 0")
+    spec.assert_contains(out, "\"isError\":false", "${what}: no tool error")
+    return out
+}
+
+ok_(tool: string, args: string, what: string) -> string {
+    return ok_env_("", tool, args, what)
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "an AI client, through the MCP server's JSON tools") {
+        spec.it("lists the app's functions, each with its parameters") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            out = ok_("chess_list_commands", "{}", "list")
+            spec.assert_contains(out, "\"signature\":\"MOVE(from, to, [promotion])\"", "MOVE, its optional one in brackets")
+            spec.assert_contains(out, "\"signature\":\"SETPOSITION(fen)\"", "SETPOSITION")
+            spec.assert_contains(out, "\"signature\":\"LISTCOMMANDS([described])\"", "LISTCOMMANDS itself")
+        }
+        spec.it("reads the board: the diagram, FEN, status and the twenty legal moves") callback {
+            out = ok_("chess_board", "{}", "board")
+            spec.assert_contains(out, "8 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜ 8", "the diagram")
+            spec.assert_contains(out, "\"fen\":\"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\"", "the FEN")
+            spec.assert_contains(out, "\"turn\":\"white\",\"status\":\"in_progress\"", "whose turn, the status")
+            spec.assert_contains(out, "{\"from\":\"g1\",\"to\":\"f3\",\"piece\":\"N\",\"capture\":false,\"promotion\":\"\",\"san\":\"Nf3\",\"coordinate\":\"g1f3\"}", "a legal move, described")
+        }
+        spec.it("makes a move by squares, and the page shows it") callback {
+            out = ok_("chess_move", "{\"from\": \"e2\", \"to\": \"e4\"}", "move")
+            spec.assert_contains(out, "\"move\":\"e4\"", "the SAN")
+            spec.assert_contains(out, "\"turn\":\"black\"", "black to move")
+            spec.assert_true(c.wait_moves("e4"), "on the page")
+        }
+        spec.it("an illegal move: a tool error saying why, and nothing changed") callback {
+            out, status = mcp_("chess_move", "{\"san\": \"Ke2\"}")
+            spec.assert_eq(status, 0, "the client exits 0")
+            spec.assert_contains(out, "\"isError\":true", "a tool error")
+            spec.assert_contains(out, "Ke2 is not a legal move for black", "and why")
+            spec.assert_true(c.wait_moves("e4"), "the page as it was")
+        }
+        spec.it("several calls as one step: one Undo takes back all three") callback {
+            out = ok_("chess_call", "@tests/mcp/args/opening.json", "three moves")
+            spec.assert_contains(out, "\"results\":[\"e5\",\"Nf3\",\"Nc6\"]", "each one's result")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "on the page")
+            undo = ok_("chess_call", "{\"function\": \"UNDO\"}", "undo")
+            spec.assert_contains(undo, "\"result\":3", "three moves back")
+            spec.assert_true(c.wait_moves("e4"), "the page back at e4")
+            ok_("chess_call", "{\"function\": \"REDO\"}", "redo")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "and forward again")
+        }
+        spec.it("calls that fail part way: a tool error saying which, and nothing kept") callback {
+            out, status = mcp_("chess_call", "@tests/mcp/args/half-fails.json")
+            spec.assert_eq(status, 0, "the client exits 0")
+            spec.assert_contains(out, "command 2 (MOVE): e2 to e4 is not a legal move for black", "which, and why")
+            spec.assert_contains(out, "(nothing it did was kept)", "and that it was taken back")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "Bb5 not kept")
+        }
+        spec.it("arguments checked before anything is sent") callback {
+            out, _s = mcp_("chess_call", "{\"function\": \"MOVE\", \"args\": [\"e2\", \"e9\"]}")
+            spec.assert_contains(out, "MOVE's argument 2 (to) must be a square, \\\"a1\\\" to \\\"h8\\\", not \\\"e9\\\"", "said which")
+        }
+        spec.it("a whole REXX program next to the game: it reads the legal moves, picks the first capture, plays it") callback {
+            ok_("chess_call", "@tests/mcp/args/set-position.json", "a position with a capture")
+            spec.assert_true(c.wait_fen("r1bqkbnr/pppp1ppp/2n5/4p3/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq d3 0 3"), "set up")
+            out = ok_("chess_run_program", "@tests/mcp/args/program.json", "program")
+            spec.assert_contains(out, "\"said\":[\"chose exd4 of 32\"]", "what it said")
+            spec.assert_contains(out, "\"result\":\"r1bqkbnr/pppp1ppp/2n5/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4\"", "its RESULT, the FEN after")
+            spec.assert_true(c.wait_moves("exd4"), "on the page")
+        }
+        spec.it("a program that fails: a tool error with the app's reason, and nothing kept") callback {
+            out, status = mcp_("chess_run_program", "@tests/mcp/args/program-fails.json")
+            spec.assert_eq(status, 0, "the client exits 0")
+            spec.assert_contains(out, "\"isError\":true", "a tool error")
+            spec.assert_contains(out, "(nothing it did was kept)", "taken back")
+            spec.assert_true(c.wait_moves("exd4"), "its move not kept")
+        }
+        spec.it("with no app to ask, a tool error that says so") callback {
+            out, _s = mcp_env_("SAE_APPDATA_DIR=/nonexistent", "chess_board", "{}")
+            spec.assert_contains(out, "no chess app to ask: sae-bus: no courier file at /nonexistent/.control-bus", "and why")
+        }
+    }
+    spec.describe(fw, "REXX, through chess_run (--tools=all)") {
+        spec.it("is not offered by default") callback {
+            out, _s = mcp_("chess_run", "{\"command\": \"GETFEN()\"}")
+            spec.assert_contains(out, "no tool named", "a protocol error, no tool")
+        }
+        spec.it("a command of two moves, and an old ADDRESS CHESS line by CHESSCOMMAND") callback {
+            ok_env_("CHESS_MCP_TOOLS=all", "chess_run", "{\"command\": \"MOVESAN(\\\"Bc4\\\"); MOVESAN(\\\"Nf6\\\")\"}", "two moves")
+            spec.assert_true(c.wait_moves("exd4 Bc4 Nf6"), "on the page")
+            out = ok_env_("CHESS_MCP_TOOLS=all", "chess_run", "{\"command\": \"CHESSCOMMAND(\\\"get-position-fen\\\")\"}", "the old get-position-fen")
+            spec.assert_contains(out, "\"result\":\"r1bqkb1r/pppp1ppp/2n2n2/8/2BpP3/5N2/PPP2PPP/RNBQK2R w KQkq - 2 5\"", "the FEN")
+            ok_env_("CHESS_MCP_TOOLS=all", "chess_run", "{\"command\": \"UNDO()\"}", "undo")
+            spec.assert_true(c.wait_moves("exd4"), "one Undo took both back")
+        }
+    }
+    return spec.run_summary(fw)
+}

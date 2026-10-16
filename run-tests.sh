@@ -18,7 +18,9 @@
 # through sae's tests/run_spec.sh, with this repo's tests/lib first on the
 # module path; spec_app_chess_bus over the control bus, and
 # spec_app_chess_rexx runs rexx/'s scripts against it, on node and the
-# RexxJS beside this checkout (./RexxJS -> ../RexxJS). On Linux with no
+# RexxJS beside this checkout (./RexxJS -> ../RexxJS). mcp: the MCP
+# server's protocol (tests/mcp/, node --test, a stand-in for sae-bus);
+# spec_app_chess_mcp drives the app through that server, with node. On Linux with no
 # display it reruns itself under xvfb-run.
 ROOT=$(cd "$(dirname "$0")" && pwd)
 cd "$ROOT" || exit 1
@@ -45,6 +47,8 @@ headless||headless
 spec_app_chess|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
+mcp||mcp
+spec_app_chess_mcp|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-mcp-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_mcp
 "
 
 pass=0; fail=0; failed=""
@@ -64,9 +68,18 @@ for line in $TABLE; do
         fail=$((fail + 1)); failed="$failed $label"; IFS='
 '; continue
     fi
+    # The MCP server runs on node.
+    case "$label" in mcp|spec_app_chess_mcp)
+        if ! command -v node >/dev/null 2>&1; then
+            echo "FAIL $label (needs node)"
+            fail=$((fail + 1)); failed="$failed $label"; IFS='
+'; continue
+        fi ;;
+    esac
     set -- $cmd
     case "$1" in
         headers) set -- "$ROOT/tools/check-headers.sh" ;;
+        mcp) set -- node --test "$ROOT/tests/mcp/" ;;
         headless) set -- env SAE_LOWER_OUT="$T/lower-tests" "$SAE/lower/run-tests.sh" --mod "$ROOT/tests/headless" ;;
         spec) set -- env SAE_TEST_LIB_DIR="$ROOT/tests/lib" \
                   "$SAE/tests/run_spec.sh" "$ROOT/tests/specs/$2.ae" "$ROOT/app" ;;
