@@ -7,32 +7,26 @@
 // app/chess/ is the game with no ui: the engine (chess.ts, bitboard.ts,
 // zobrist.ts, move.ts, position.ts, parser.ts, ported from src/*.js),
 // the game (game.ts), its commands (commands.ts), the control functions
-// (control.ts, described.ts) and the scripts (script.ts). This page is the
-// ui, declared over the commands. The board is drawn in stage 3 of
-// TODO.md; until then the page shows the game as text: whose turn, the
-// status, the moves and the position's FEN, which the specs read.
-import { Commands } from "./chess/commands.ts";
+// (control.ts, described.ts) and the scripts (script.ts). app/chess/view/
+// is the ui: each panel reads the view's states and runs commands, and
+// nothing else. This page only says which panels, in which order.
+import { ChessView } from "./chess/view/view.ts";
+import { board } from "./chess/view/board.ts";
 
-const cmds = new Commands();
-const turn = state("");
-const moves = state("");
-const fen = state("");
-
-function refresh(): void {
-  const g = cmds.game;
-  batch(() => {
-    turn.set(`${g.turn()} to move: ${g.status()}${g.isOver() ? ` (${g.result()})` : ""}`);
-    moves.set(g.sanList().length ? `Moves: ${g.sanList().join(" ")}` : "Moves: none yet");
-    fen.set(`FEN: ${g.fen()}`);
-  });
-}
+const v = new ChessView();
 
 ui.text("Chess");
-ui.text("The board comes in stage 3 of TODO.md; the engine is tested headless meanwhile.");
-bind(ui.text(""), turn);
-bind(ui.text_wrapped("", 720), moves);
-bind(ui.text(""), fen);
-refresh();
+board(v);
+bind(ui.text(""), computed(() => {
+  const g = v.game.value;
+  return g ? `${g.turn} to move: ${g.status}${g.result !== "*" ? ` (${g.result})` : ""}` : "";
+}, v.game));
+bind(ui.text_wrapped("", 720), computed(() => {
+  const g = v.game.value;
+  return g && g.sans.length ? `Moves: ${g.sans.join(" ")}` : "Moves: none yet";
+}, v.game));
+bind(ui.text(""), computed(() => `FEN: ${v.game.value?.fen ?? ""}`, v.game));
+v.refresh();
 
 // The control bus (an installed app started with --control-bus): another
 // program drives the game, each request a string of REXX (MOVE("e2",
@@ -42,13 +36,13 @@ refresh();
 // deadline) is told to the commands, which put back what it did.
 if (typeof bus !== "undefined") {
   bus.serve(async (code: string) => {
-    const o = await cmds.chess(code, (line) => print(`chess: ${line}`));
-    refresh();
+    const o = await v.cmds.chess(code, (line) => print(`chess: ${line}`));
+    v.refresh();
     if (!o.ok) throw new Error(o.message);
     return o.output ?? null;
   }, async (reason: string) => {
-    const what = cmds.stopped(reason);
-    refresh();
+    const what = v.cmds.stopped(reason);
+    v.refresh();
     print(`chess: a control-bus request ${reason === "interrupted" ? "was stopped" : "ran past the deadline"}: ${what}`);
   });
 }

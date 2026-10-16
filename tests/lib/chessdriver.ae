@@ -1,10 +1,24 @@
 // chessdriver.ae — verbs for the chess app's specs (app/chess.ts), on
-// saedriver and aether-ui's uidriver. Grows with the page: the board, the
-// move list and the buttons each get their verbs as TODO.md's stage 3 lands.
+// saedriver and aether-ui's uidriver. The board (app/chess/view/board.ts)
+// is a vg scene with the viewBox 0 0 88 88: a 4-unit margin, squares of
+// 10. A square is named as on the board ("e4"); `flipped` is 1 when black
+// is at the bottom.
 
-exports(wait_ready, wait_moves, wait_fen)
+exports(wait_ready, wait_moves, wait_fen, square_x, square_y, square_rgb, wait_square_rgb, piece_at, wait_piece, click_square,
+        drag_square, LIGHT, DARK, LAST_LIGHT, LAST_DARK, CHECK, SELECTED, TARGET)
 
+import std.string
+import std.json
 import saedriver as b
+import uidriver
+
+const LIGHT = 15784373        // #f0d9b5
+const DARK = 11896931         // #b58863
+const LAST_LIGHT = 13488746   // #cdd26a
+const LAST_DARK = 11182650    // #aaa23a
+const CHECK = 14700624        // #e05050
+const SELECTED = 8369109      // #7fb3d5
+const TARGET = 3833156        // #3a7d44
 
 // The page is up: its title text is shown. 1 when it is, 0 after the wait.
 wait_ready() -> int { return b.wait_for_text("Chess") }
@@ -17,3 +31,98 @@ wait_moves(sans: string) -> int {
 
 // The page shows the position `fen`.
 wait_fen(fen: string) -> int { return b.wait_for_text("FEN: ${fen}") }
+
+// The column and row (from the top left) a square is shown at.
+col_of_(sq: string, flipped: int) -> int {
+    f = string.index_of("abcdefgh", string.substring(sq, 0, 1))
+    if flipped == 1 { return 7 - f }
+    return f
+}
+
+row_of_(sq: string, flipped: int) -> int {
+    r = string.index_of("12345678", string.substring(sq, 1, 2))
+    if flipped == 1 { return r }
+    return 7 - r
+}
+
+// A point of a square in canvas pixels: (fx, fy) from its top left, in
+// tenths of the square (5, 5 is its centre).
+point_x_(sq: string, flipped: int, fx: float) -> int {
+    return b.vg_px_x(4.0 + col_of_(sq, flipped) * 10.0 + fx, 88.0, 88.0)
+}
+
+point_y_(sq: string, flipped: int, fy: float) -> int {
+    return b.vg_px_y(4.0 + row_of_(sq, flipped) * 10.0 + fy, 88.0, 88.0)
+}
+
+// A square's centre, in canvas pixels.
+square_x(sq: string, flipped: int) -> int { return point_x_(sq, flipped, 5.0) }
+square_y(sq: string, flipped: int) -> int { return point_y_(sq, flipped, 5.0) }
+
+// The square's own colour (0xRRGGBB), sampled near its top-left corner,
+// clear of the piece and of a target's dot.
+square_rgb(sq: string, flipped: int) -> int {
+    return b.vg_pixel(point_x_(sq, flipped, 1.0), point_y_(sq, flipped, 1.0)) & 16777215
+}
+
+wait_square_rgb(sq: string, flipped: int, rgb: int) -> int {
+    return b.wait_for_vg_pixel(point_x_(sq, flipped, 1.0), point_y_(sq, flipped, 1.0), rgb)
+}
+
+// The glyph shown on a square ("" for none): the visible text node of the
+// scene whose centre is in the square, not a coordinate.
+piece_at(sq: string, flipped: int) -> string {
+    cx = square_x(sq, flipped) * 1.0
+    cy = square_y(sq, flipped) * 1.0
+    half = (b.vg_px_x(10.0, 88.0, 88.0) - b.vg_px_x(0.0, 88.0, 88.0)) * 0.5
+    v, jerr = json.parse(b.vg_nodes())
+    if jerr != "" || v == null { return "?" }
+    found = ""
+    n = json.json_array_size(v)
+    i = 0
+    while i < n {
+        node = json.json_array_get_raw(v, i)
+        if string.equals(uidriver.field_str(node, "kind"), "text") == 1 && json.json_get_bool(json.json_object_get_raw(node, "visible")) == 1 {
+            t = uidriver.field_str(node, "text")
+            x = json.json_get_number(json.json_object_get_raw(node, "x")) + json.json_get_number(json.json_object_get_raw(node, "w")) * 0.5
+            y = json.json_get_number(json.json_object_get_raw(node, "y")) + json.json_get_number(json.json_object_get_raw(node, "h")) * 0.5
+            dx = x - cx
+            dy = y - cy
+            if dx < half && dx > 0.0 - half && dy < half && dy > 0.0 - half && string.length(t) > 1 { found = t }
+        }
+        i = i + 1
+    }
+    json.json_free(v)
+    return found
+}
+
+// 1 once the square shows `glyph` ("" for empty).
+wait_piece(sq: string, flipped: int, glyph: string) -> int {
+    i = 0
+    while i < 100 {
+        if string.equals(piece_at(sq, flipped), glyph) == 1 { return 1 }
+        sleep(50)
+        i = i + 1
+    }
+    return 0
+}
+
+// A click on a square's centre.
+click_square(sq: string, flipped: int) {
+    b.vg_click(square_x(sq, flipped), square_y(sq, flipped))
+}
+
+// A piece dragged from one square to another: pressed, moved in steps, released.
+drag_square(from: string, to: string, flipped: int) {
+    x0 = square_x(from, flipped)
+    y0 = square_y(from, flipped)
+    x1 = square_x(to, flipped)
+    y1 = square_y(to, flipped)
+    b.vg_click(x0, y0)
+    k = 1
+    while k <= 4 {
+        b.vg_move(x0 + (x1 - x0) * k / 4, y0 + (y1 - y0) * k / 4)
+        k = k + 1
+    }
+    b.vg_release(x1, y1)
+}

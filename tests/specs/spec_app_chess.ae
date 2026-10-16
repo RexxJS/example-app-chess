@@ -1,7 +1,6 @@
 // spec_app_chess.ae — the chess app (app/app.json, app/chess.ts) run as an
-// installed app in sae-driver: it opens on its start page. The page is
-// empty until TODO.md's stage 3; this spec proves the harness end to end
-// and grows with the page.
+// installed app in sae-driver: it opens on its start page, a new game.
+// The board itself is spec_app_chess_board's.
 //   ./run-tests.sh spec_app_chess
 import std.spec
 import saedriver as b
@@ -14,7 +13,7 @@ main() {
     spec.describe(fw, "the chess app") {
         spec.it("opens on its page") callback {
             spec.assert_true(c.wait_ready(), "the page's title is shown")
-            spec.assert_true(b.wait_for_text("The board comes in stage 3 of TODO.md; the engine is tested headless meanwhile."), "and says the board is to come")
+            spec.assert_true(c.wait_moves(""), "a new game, no moves yet")
         }
     }
     return spec.run_summary(fw)

@@ -1,0 +1,62 @@
+// spec_app_chess_board.ae — the board drawn in vg (app/chess/view/board.ts):
+// light and dark squares, the pieces as glyphs on their squares, the last
+// move and a king in check marked, and the board flipped for black. Moves
+// and the flip come over the control bus, as any program's would; what is
+// checked is the canvas's pixels (sae-driver's /pixel) and its nodes.
+//   ./run-tests.sh spec_app_chess_board
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the board") {
+        spec.it("the start: light and dark squares, the pieces where they stand") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board is drawn")
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "a1 is dark")
+            spec.assert_true(c.wait_square_rgb("h1", 0, c.LIGHT), "h1 is light")
+            spec.assert_true(c.wait_square_rgb("d4", 0, c.DARK), "d4 is dark")
+            spec.assert_true(c.wait_piece("e1", 0, "♔"), "the white king on e1")
+            spec.assert_true(c.wait_piece("d8", 0, "♛"), "the black queen on d8")
+            spec.assert_true(c.wait_piece("e2", 0, "♙"), "a white pawn on e2")
+            spec.assert_true(c.wait_piece("e4", 0, ""), "e4 empty")
+            spec.assert_true(b.wait_for_text("white to move: in_progress"), "white to move")
+        }
+        spec.it("after MOVE: the piece moved, both squares of the last move marked") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVE(\"e2\", \"e4\")")
+            spec.assert_true(c.wait_piece("e4", 0, "♙"), "the pawn on e4")
+            spec.assert_true(c.wait_piece("e2", 0, ""), "e2 empty")
+            spec.assert_true(c.wait_square_rgb("e2", 0, c.LAST_LIGHT), "e2 marked (a light square)")
+            spec.assert_true(c.wait_square_rgb("e4", 0, c.LAST_LIGHT), "e4 marked (a light square too)")
+            _s2, _p2 = command_(key, "MOVESAN(\"e5\")")
+            spec.assert_true(c.wait_square_rgb("e7", 0, c.LAST_DARK), "the next move's squares marked: e7 (dark)")
+            spec.assert_true(c.wait_square_rgb("e5", 0, c.LAST_DARK), "and e5 (dark)")
+            spec.assert_true(c.wait_square_rgb("e2", 0, c.LIGHT), "the last one's no more")
+        }
+        spec.it("a king in check: its square red") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVESAN(\"f4\"); MOVESAN(\"Qh4\")")
+            spec.assert_true(c.wait_square_rgb("e1", 0, c.CHECK), "e1 red")
+            spec.assert_true(b.wait_for_text("white to move: check"), "check said")
+            _s2, _p2 = command_(key, "UNDO()")
+            spec.assert_true(c.wait_square_rgb("e1", 0, c.DARK), "red no more after UNDO")
+        }
+        spec.it("FLIPBOARD: black at the bottom, every square where the flip puts it") callback {
+            _u, key = courier_()
+            _s, got = command_(key, "FLIPBOARD()")
+            spec.assert_contains(got, "\"result\":1", "flipped")
+            spec.assert_true(c.wait_piece("e8", 1, "♚"), "the black king now near the bottom")
+            spec.assert_true(c.wait_piece("e4", 1, "♙"), "e4's pawn where e4 is shown now")
+            spec.assert_true(c.wait_square_rgb("a1", 1, c.DARK), "a1 still dark, at the top right")
+            spec.assert_true(b.vg_pixel(c.square_x("a1", 1), c.square_y("a1", 1)) != b.vg_pixel(c.square_x("a1", 0), c.square_y("a1", 0)), "a1 is not where it was")
+            _s2, _p2 = command_(key, "FLIPBOARD()")
+            spec.assert_true(c.wait_piece("e8", 0, "♚"), "and back")
+        }
+    }
+    return spec.run_summary(fw)
+}

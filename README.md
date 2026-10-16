@@ -24,7 +24,7 @@ in stages, each step one tested commit: [TODO.md](TODO.md).
 app/
   app.json          the installed app's manifest: its start page and grants
                     (documents, the control bus)
-  chess.ts          the page
+  chess.ts          the page: which panels, in which order
   chess/            the game with no ui: chess.ts, bitboard.ts, zobrist.ts,
                     move.ts, position.ts, parser.ts (the engine, ported from
                     src/*.js, stage 1 of TODO.md), game.ts (a game over a
@@ -35,6 +35,8 @@ app/
                     commands by their old names), line.ts (a command
                     line), rexxjs.js (RexxJS, generated); to come in
                     TODO.md's order: ai.ts
+  chess/view/       the ui: view.ts (the states the panels read, refreshed
+                    after every command), board.ts (the board in vg)
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move
