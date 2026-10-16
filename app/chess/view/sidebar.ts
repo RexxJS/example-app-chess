@@ -18,6 +18,11 @@ interface Row { readonly n: number; readonly white: string; readonly black: stri
 export function sidebar(v: ChessView): number {
   return ui.vstack(() => {
     bind(ui.text(""), computed(() => v.game.value?.statusText ?? "", v.game));
+    // The opening's name (book.ts), once the game has reached a named position.
+    bind(ui.text(""), computed(() => {
+      const g = v.game.value;
+      return g && g.opening ? `Opening: ${g.opening}` : "Opening: none yet";
+    }, v.game));
     bind(ui.text(""), computed(() => {
       const g = v.game.value;
       return `White has taken: ${g && g.capturedByWhite.length ? g.capturedByWhite.map(glyphOf).join(" ") : "nothing"}`;

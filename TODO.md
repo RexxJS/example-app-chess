@@ -114,7 +114,7 @@ first.
 |---|---|---|---|
 | 6.1 | Two apps play each other over the bus: a REXX script (RexxJS's CLI) driving two instances, or one instance's `AIMOVE()` against a scripted opening book | spec: a script plays twenty moves between two apps | the script is the tournament |
 | 6.2 | Clocks: a time control per side, the flag falling, shown and scripted | headless `chess_clock` (a fake clock); spec | `SETCLOCK("5+3")` |
-| 6.3 | Opening book: a small book the AI and a script can read; the opening's name shown | headless | `OPENINGNAME()` |
+| 6.3 | ~~Opening book: a small book the AI and a script can read; the opening's name shown~~ (done 2026-10-16: `book.ts`, 105 lines written for this app from the openings' public names and moves, read into the positions they pass through, so a transposition is named too (1. c4 e6 2. d4 d5 is the Queen's Gambit Declined); the name the last named position the game reached, beside the board; the computer plays from the book when `ai.book` is on (the Book button, the menu), a book move chosen by the position, the same each time, made at once; kept in the game's file) | headless `chess_book`; spec `spec_app_chess_book` | `OPENINGNAME()`, `BOOKMOVES()`, `SETBOOK([on])` |
 | 6.4 | Puzzles: a position, a goal (mate in n), checked; a set loaded from a file | headless; spec | `LOADPUZZLE(n)`, `PUZZLESOLVED()` |
 | 6.5 | Chess960 start positions (the `factor-language/extra/chess960` checkout is a reference for the numbering only) | headless: the 960 positions enumerated, castling rules for them | `NEWGAME960(n)` |
 | 6.6 | Accessibility: the board readable square by square by a screen reader (an aether-ui ask), keyboard-only play | spec via the driver | |

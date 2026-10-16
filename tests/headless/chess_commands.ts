@@ -17,7 +17,7 @@ const refused = (line: string) => {
   return o.ok ? `OK ${o.message}` : o.message;
 };
 
-eq("the catalogue", c.catalogue().map((x) => x.id), ["game.new", "game.move", "game.undo", "game.redo", "game.goto", "game.setPosition", "game.resign", "game.offerDraw", "ai.level", "ai.side", "ai.move", "ai.analyze", "ai.hint", "board.flip", "game.script", "game.export", "game.import", "game.exportPgn", "game.importPgn", "game.save", "game.open", "game.kept", "game.forget", "view.dark", "view.boardSize", "game.state"]);
+eq("the catalogue", c.catalogue().map((x) => x.id), ["game.new", "game.move", "game.undo", "game.redo", "game.goto", "game.setPosition", "game.resign", "game.offerDraw", "ai.level", "ai.side", "ai.move", "ai.book", "ai.analyze", "ai.hint", "board.flip", "game.script", "game.export", "game.import", "game.exportPgn", "game.importPgn", "game.save", "game.open", "game.kept", "game.forget", "view.dark", "view.boardSize", "game.state"]);
 eq("searched by label", c.catalogue("flip").map((x) => `${x.id}: ${x.label}`), ["board.flip: Flip the board"]);
 eq("a command line parsed", parseLine('game.move from=e2 to=e4 san="Nf3" x=""'), { id: "game.move", params: { from: "e2", to: "e4", san: "Nf3", x: "" } });
 eq("and written", lineOf("game.setPosition", { fen: "8/8 w - - 0 1" }), 'game.setPosition fen="8/8 w - - 0 1"');

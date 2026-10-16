@@ -12,10 +12,10 @@ const PLAYS: readonly (readonly [string, AiSide])[] = [
   ["Play as white", "black"], ["Play as black", "white"], ["Play both sides", "none"], ["Computer plays both", "both"],
 ];
 
-export function playsLabel(aiSide: AiSide, level: number): string {
+export function playsLabel(aiSide: AiSide, level: number, book = false): string {
   if (aiSide === "none") return "You play both sides";
-  if (aiSide === "both") return `The computer plays both sides, at level ${level}`;
-  return `You play ${aiSide === "black" ? "white" : "black"}; the computer plays ${aiSide}, at level ${level}`;
+  if (aiSide === "both") return `The computer plays both sides, at level ${level}${book ? ", from the book" : ""}`;
+  return `You play ${aiSide === "black" ? "white" : "black"}; the computer plays ${aiSide}, at level ${level}${book ? ", from the book" : ""}`;
 }
 
 export function toolbar(v: ChessView): void {
@@ -39,13 +39,14 @@ export function toolbar(v: ChessView): void {
   ui.hstack(() => {
     for (const [label, side] of PLAYS) ui.btn(label, () => v.run("ai.side", { side }));
     for (const level of [1, 2, 3, 4]) ui.btn(`Level ${level}`, () => v.run("ai.level", { level: String(level) }));
+    ui.btn("Book", () => v.run("ai.book"));
     ui.btn("Computer move", () => v.think());
     ui.btn("Stop", () => v.stopThinking());
   });
   bind(ui.text(""), v.thinking);
   bind(ui.text(""), computed(() => {
     const g = v.game.value;
-    return g ? playsLabel(g.aiSide, g.aiLevel) : "";
+    return g ? playsLabel(g.aiSide, g.aiLevel, g.book) : "";
   }, v.game));
 }
 
@@ -77,6 +78,7 @@ export function menuBar(v: ChessView): void {
     ui.menu_separator();
     for (const level of [1, 2, 3, 4]) ui.menu_item(`Level ${level}`, () => v.run("ai.level", { level: String(level) }));
     ui.menu_separator();
+    ui.menu_item("Play from the opening book", () => v.run("ai.book"));
     ui.menu_item("Computer move", () => v.think());
     ui.menu_item("Stop thinking", () => v.stopThinking());
     ui.menu_separator();

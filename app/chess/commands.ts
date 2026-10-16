@@ -13,6 +13,7 @@
 // (Game.saved/restore), so nothing it did is kept.
 import { getIndexFromAlgebraic } from "./chess.ts";
 import { AI, depthOf } from "./ai.ts";
+import { bookMove } from "./book.ts";
 import { analyze, lineText } from "./analysis.ts";
 import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
@@ -223,12 +224,23 @@ export const SPECS: readonly Spec[] = [
     // and AIMOVE think in slices, think.ts, and then make it so).
     run: (game, p) => {
       if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
-      const move = p.move !== undefined
-        ? game.find(p.move.trim().toLowerCase()) ?? refuse(`${p.move} is not a legal move for ${game.turn()}`)
+      // From the book (book.ts) while the game is in it, when the computer plays from it.
+      const fromBook = p.move === undefined && game.book ? bookMove(game) : null;
+      const move = p.move !== undefined || fromBook !== null
+        ? game.find((p.move ?? fromBook!).trim().toLowerCase()) ?? refuse(`${p.move} is not a legal move for ${game.turn()}`)
         : new AI().search(game.position, depthOf(game.aiLevel)) ?? refuse(`the computer has no move for ${game.turn()}`);
       const who = game.turn();
       const m = game.move(move);
-      return { ok: true, message: `the computer (${who}, level ${game.aiLevel}) played ${m.san}${game.isOver() ? ` (${game.status()}, ${game.result()})` : ""}`, output: m.san };
+      return { ok: true, message: `the computer (${who}, ${fromBook !== null ? "from the book" : `level ${game.aiLevel}`}) played ${m.san}${game.isOver() ? ` (${game.status()}, ${game.result()})` : ""}`, output: m.san };
+    },
+  },
+  {
+    id: "ai.book", label: "Play from the book", params: [], optional: ["on"], journaled: true,
+    // The computer plays the opening book's moves while the game is in it (book.ts); on= 1 or 0, or the other when left out.
+    run: (game, p) => {
+      if (p.on !== undefined && !/^(0|1|on|off|true|false|yes|no)$/i.test(p.on.trim())) refuse(`${p.on} is not on or off (1 or 0)`);
+      game.book = p.on === undefined ? !game.book : /^(1|on|true|yes)$/i.test(p.on.trim());
+      return { ok: true, message: game.book ? "the computer plays from the opening book" : "the computer does not use the opening book", output: game.book ? 1 : 0 };
     },
   },
   {

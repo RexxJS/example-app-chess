@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-45 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+48 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -66,6 +66,9 @@ the bus and the MCP server give back.
 | [`AIMOVE()`](#aimove) | The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work | the move in SAN |
 | [`ANALYZE([depth])`](#analyze) | What the computer makes of the position: its value, the best move and the line it expects (the game is not changed) | {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes} |
 | [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
+| [`OPENINGNAME()`](#openingname) | The name of the opening the game is in: the last position of the opening book (written for this app from the openings' public names) the game passed through, transpositions too | e.g. "Ruy Lopez, Morphy Defence"; "" before the first named position, or for a game set up from another |
+| [`BOOKMOVES()`](#bookmoves) | The opening book's moves from the position now | a stem of moves in SAN; none once the game is out of the book |
+| [`SETBOOK([on])`](#setbook) | Whether the computer plays from the opening book while the game is in it (AIMOVE then makes a book move at once, chosen by the position) | 1 when on, else 0 |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
 | [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for | the size, in pixels |
 | [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
@@ -435,6 +438,34 @@ HINT()
 ```
 
 The move the computer would play for the side to move, at its level (the game is not changed). Gives the move in SAN.
+
+### OPENINGNAME
+
+```rexx
+OPENINGNAME()
+```
+
+The name of the opening the game is in: the last position of the opening book (written for this app from the openings' public names) the game passed through, transpositions too. Gives e.g. "Ruy Lopez, Morphy Defence"; "" before the first named position, or for a game set up from another.
+
+### BOOKMOVES
+
+```rexx
+BOOKMOVES()
+```
+
+The opening book's moves from the position now. Gives a stem of moves in SAN; none once the game is out of the book.
+
+### SETBOOK
+
+```rexx
+SETBOOK([on])
+```
+
+Whether the computer plays from the opening book while the game is in it (AIMOVE then makes a book move at once, chosen by the position). Gives 1 when on, else 0.
+
+| Parameter | Kind | |
+|---|---|---|
+| `on` | flag, optional | 1: on, 0: off; left out: the other one |
 
 ### FLIPBOARD
 

@@ -1,0 +1,48 @@
+// spec_app_chess_book.ae — the opening book (app/chess/book.ts, TODO.md
+// 6.3): the opening's name beside the board as the game reaches it (by any
+// order of moves), the Book button, the computer's move from the book made
+// at once; OPENINGNAME() and BOOKMOVES() over the control bus.
+//   ./run-tests.sh spec_app_chess_book
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the opening book") {
+        spec.it("the start: no opening yet") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(b.wait_for_text("Opening: none yet"), "none yet")
+        }
+        spec.it("the opening named as the game reaches it, a transposition too") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVESAN(\"c4\")")
+            spec.assert_true(b.wait_for_text("Opening: English Opening"), "1. c4")
+            _s2, _p2 = command_(key, "MOVESAN(\"e6\"); MOVESAN(\"d4\"); MOVESAN(\"d5\")")
+            spec.assert_true(b.wait_for_text("Opening: Queen's Gambit Declined"), "by 1. c4 e6 2. d4 d5")
+            _s3, got = command_(key, "OPENINGNAME()")
+            spec.assert_contains(got, "\"result\":\"Queen's Gambit Declined\"", "OPENINGNAME()")
+        }
+        spec.it("Book: the computer's move from the book, at once") callback {
+            b.click("New game")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            spec.assert_true(c.wait_moves("e4"), "1. e4 on the board")
+            b.click("Book")
+            spec.assert_true(b.wait_for_text("the computer plays from the opening book"), "on")
+            b.click("Computer move")
+            _u, key = courier_()
+            _s, sans = command_(key, "GETMOVEHISTORYSAN()")
+            spec.assert_contains(sans, "\"0\":2", "the computer's reply made at once")
+            spec.assert_true(b.has_text("Opening: none yet") == 0, "an opening named")
+            _s2, got = command_(key, "BOOKMOVES()")
+            spec.assert_contains(got, "\"success\":true", "BOOKMOVES()")
+            spec.assert_contains(got, "\"0\":", "a stem")
+        }
+    }
+    return spec.run_summary(fw)
+}

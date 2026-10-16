@@ -9,6 +9,7 @@ import type { Outcome, Params } from "../commands.ts";
 import { BOARD_SIZES, stateOf } from "../game.ts";
 import type { State } from "../game.ts";
 import { think } from "../think.ts";
+import { bookMove } from "../book.ts";
 import { analysisOf, lineText } from "../analysis.ts";
 import { START_PIECES, fenOf } from "../setup.ts";
 import type { Turn } from "../setup.ts";
@@ -92,6 +93,11 @@ export class ChessView {
     if (this.#thought) return;
     if (g.isOver()) {
       this.status.set(`the game is over (${g.status()}, ${g.result()})`);
+      return;
+    }
+    // A book move (book.ts) is made at once: nothing to think about.
+    if (g.book && bookMove(g) !== null) {
+      this.run("ai.move");
       return;
     }
     const who = `${g.turn()}, level ${g.aiLevel}`;
