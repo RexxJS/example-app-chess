@@ -28,8 +28,10 @@ app/
                     position: moves, undo/redo, the result), commands.ts
                     (every action a command: id, label, params), control.ts
                     and described.ts (the REXX functions, each described),
-                    rexxjs.js (RexxJS, generated); to come in TODO.md's
-                    order: script.ts, ai.ts
+                    script.ts (REXX scripts: ADDRESS CHESS, the old
+                    commands by their old names), line.ts (a command
+                    line), rexxjs.js (RexxJS, generated); to come in
+                    TODO.md's order: ai.ts
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move

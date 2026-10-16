@@ -9,9 +9,8 @@
 // functions see the game only through `exec`, a command and its
 // parameters in and its outcome out, as a button does.
 import { RANK_CHARACTERS, getIndex, getIndexFromAlgebraic, getPieceCharacter } from "./chess.ts";
-import type { State } from "./commands.ts";
-import { legalMovesOf } from "./commands.ts";
-import type { Game } from "./game.ts";
+import { legalMovesOf } from "./game.ts";
+import type { Game, State } from "./game.ts";
 import { DESCRIBED, signature } from "./described.ts";
 
 export interface Done {

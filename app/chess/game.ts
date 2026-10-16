@@ -288,3 +288,54 @@ export class Game {
     this.#group = group === null ? null : -1;
   }
 }
+
+// What game.state (commands.ts) gives: everything the page (and GETSTATUS,
+// GETGAMEINFO) read.
+export interface State {
+  readonly fen: string;
+  readonly turn: Side;
+  readonly status: string;
+  readonly result: string;
+  readonly check: boolean;
+  readonly moves: readonly string[];      // coordinate
+  readonly sans: readonly string[];
+  readonly lastMove: string;              // coordinate, or ""
+  readonly legalMoves: number;
+  readonly halfmoveClock: number;
+  readonly fullmoveNumber: number;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly startFen: string;
+  readonly aiLevel: number;
+  readonly aiSide: AiSide;
+  readonly flipped: boolean;
+}
+
+export function stateOf(game: Game): State {
+  const last = game.made.length ? game.made[game.made.length - 1].move.getCoordinate() : "";
+  return {
+    fen: game.fen(), turn: game.turn(), status: game.status(), result: game.result(), check: game.position.isKingInCheck(),
+    moves: game.moveList(), sans: game.sanList(), lastMove: last, legalMoves: game.legalMoves().length,
+    halfmoveClock: game.position.halfmoveClock, fullmoveNumber: game.position.fullmoveNumber,
+    canUndo: game.canUndo(), canRedo: game.canRedo(), startFen: game.startFen,
+    aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
+  };
+}
+
+/** A legal move as a script sees it: {from, to, piece, capture, promotion, san}. */
+export interface LegalMove {
+  readonly from: string;
+  readonly to: string;
+  readonly piece: string;        // P, N, B, R, Q, K
+  readonly capture: boolean;
+  readonly promotion: string;    // "", or Q, R, B, N
+  readonly san: string;
+  readonly coordinate: string;
+}
+
+export function legalMovesOf(game: Game): LegalMove[] {
+  return game.legalMoves().map((m) => ({
+    from: m.getCoordinate().slice(0, 2), to: m.getCoordinate().slice(2, 4), piece: "PNBRQK".charAt(m.getPiece()),
+    capture: m.isCapture(), promotion: m.isPromotion() ? "PNBRQK".charAt(m.getPromotedPiece()) : "", san: toSan(game.position, m), coordinate: m.getCoordinate(),
+  }));
+}

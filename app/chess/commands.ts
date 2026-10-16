@@ -12,12 +12,13 @@
 // request that fails part way is taken back whole from a snapshot
 // (Game.saved/restore), so nothing it did is kept.
 import { getIndexFromAlgebraic } from "./chess.ts";
-import { Game, LEVELS } from "./game.ts";
-import type { AiSide, Side } from "./game.ts";
+import { Game, LEVELS, stateOf } from "./game.ts";
+import type { AiSide, Side, Snapshot } from "./game.ts";
+import { lineOf, parseLine } from "./line.ts";
+import type { Params } from "./line.ts";
 import { Move } from "./move.ts";
-import { toSan } from "./parser.ts";
-
-export type Params = Readonly<Record<string, string>>;
+import { runChess, runScript } from "./script.ts";
+import type { ScriptHost } from "./script.ts";
 
 export interface Outcome {
   readonly ok: boolean;
@@ -37,27 +38,6 @@ interface Spec {
 // A command that cannot run as asked: its message is the Outcome's.
 class Refused extends Error {}
 const refuse = (message: string): never => { throw new Refused(message); };
-
-// ---- The command line: an id, then name=value pairs; a value with spaces,
-// quotes or '=' is quoted, "" being a quote inside.
-
-export function parseLine(line: string): { id: string; params: Record<string, string> } {
-  const m = /^\s*(\S+)/.exec(line);
-  const params: Record<string, string> = {};
-  let rest = line.slice(m ? m[0].length : 0);
-  for (;;) {
-    const p = /^\s*([A-Za-z_][\w]*)=("(?:[^"]|"")*"|\S*)/.exec(rest);
-    if (!p) break;
-    params[p[1]] = p[2].startsWith('"') ? p[2].slice(1, -1).replace(/""/g, '"') : p[2];
-    rest = rest.slice(p[0].length);
-  }
-  return { id: m ? m[1] : "", params };
-}
-
-export function lineOf(id: string, params: Params): string {
-  const value = (v: string) => (v === "" || /[\s"=]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  return [id, ...Object.entries(params).map(([k, v]) => `${k}=${value(v)}`)].join(" ");
-}
 
 // ---- Reading parameters
 
@@ -103,8 +83,6 @@ function moveOf(game: Game, p: Params): Move {
 }
 
 // ---- What a command gives back
-
-const made = (game: Game, san: string, what: string): Outcome => ({ ok: true, message: `${what} ${san}`, output: san });
 
 export const SPECS: readonly Spec[] = [
   {
@@ -204,57 +182,6 @@ export const SPECS: readonly Spec[] = [
   },
 ];
 
-// What game.state gives: everything the page (and GETSTATUS, GETGAMEINFO)
-// read.
-export interface State {
-  readonly fen: string;
-  readonly turn: Side;
-  readonly status: string;
-  readonly result: string;
-  readonly check: boolean;
-  readonly moves: readonly string[];      // coordinate
-  readonly sans: readonly string[];
-  readonly lastMove: string;              // coordinate, or ""
-  readonly legalMoves: number;
-  readonly halfmoveClock: number;
-  readonly fullmoveNumber: number;
-  readonly canUndo: boolean;
-  readonly canRedo: boolean;
-  readonly startFen: string;
-  readonly aiLevel: number;
-  readonly aiSide: AiSide;
-  readonly flipped: boolean;
-}
-
-export function stateOf(game: Game): State {
-  const last = game.made.length ? game.made[game.made.length - 1].move.getCoordinate() : "";
-  return {
-    fen: game.fen(), turn: game.turn(), status: game.status(), result: game.result(), check: game.position.isKingInCheck(),
-    moves: game.moveList(), sans: game.sanList(), lastMove: last, legalMoves: game.legalMoves().length,
-    halfmoveClock: game.position.halfmoveClock, fullmoveNumber: game.position.fullmoveNumber,
-    canUndo: game.canUndo(), canRedo: game.canRedo(), startFen: game.startFen,
-    aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
-  };
-}
-
-/** A legal move as a script sees it: {from, to, piece, capture, promotion, san}. */
-export interface LegalMove {
-  readonly from: string;
-  readonly to: string;
-  readonly piece: string;        // P, N, B, R, Q, K
-  readonly capture: boolean;
-  readonly promotion: string;    // "", or Q, R, B, N
-  readonly san: string;
-  readonly coordinate: string;
-}
-
-export function legalMovesOf(game: Game): LegalMove[] {
-  return game.legalMoves().map((m) => ({
-    from: m.getCoordinate().slice(0, 2), to: m.getCoordinate().slice(2, 4), piece: "PNBRQK".charAt(m.getPiece()),
-    capture: m.isCapture(), promotion: m.isPromotion() ? "PNBRQK".charAt(m.getPromotedPiece()) : "", san: toSan(game.position, m), coordinate: m.getCoordinate(),
-  }));
-}
-
 const BY_ID = new Map(SPECS.map((s) => [s.id, s]));
 
 export class Commands {
@@ -294,5 +221,82 @@ export class Commands {
   // The command lines that changed the game, in order.
   journal(): string[] {
     return [...this.#journal];
+  }
+
+  // A RexxJS script, driving these commands (script.ts); `say` gets its
+  // SAY lines. The whole script's moves are one step of undo.
+  async script(text: string, say: (line: string) => void): Promise<{ ok: boolean; message: string }> {
+    this.game.beginGroup();
+    try {
+      return await runScript(text, this.#scriptHost(), say);
+    } finally {
+      this.game.endGroup();
+    }
+  }
+
+  // One control-bus string (script.ts's runChess). One step of undo,
+  // however many moves it makes; and all or nothing: a request that fails
+  // part way (MOVE("e2", "e4"); BOGUS()) is taken back whole, so the
+  // program that sent it, told it failed, finds the game as it was.
+  async chess(code: string, say: (line: string) => void): Promise<{ ok: boolean; message: string; output?: unknown }> {
+    // One the bus gave up on, still open: ended, not taken back, as what the
+    // person did since may be in it.
+    if (this.#request) {
+      this.game.endGroup();
+      this.#request = null;
+    }
+    const request = { cancelled: false, before: this.game.saved() };
+    this.#request = request;
+    this.game.beginGroup();
+    let o: { ok: boolean; message: string; output?: unknown } = { ok: false, message: "the request did not finish" };
+    let mine = false;
+    try {
+      o = await runChess(code, this.#scriptHost(request), say);
+    } finally {
+      if (request.cancelled) o = { ok: false, message: "the request was stopped" };
+      if (this.#request === request) {
+        this.game.endGroup();
+        this.#request = null;
+        mine = true;
+      }
+    }
+    if (!o.ok && mine) return { ...o, message: `${o.message}${this.#takeBack(request.before)}` };
+    return o;
+  }
+
+  // The request in flight, which sae's control bus answered without it
+  // (bus.serve's stopped): "interrupted", the page's time limit stopped it
+  // and it will not come back, so it is taken back now; "deadline", it was
+  // still running at the bus's 10 s, so it is cancelled: its next command
+  // fails, and it is taken back as any failed request is.
+  stopped(reason: string): string {
+    const request = this.#request;
+    if (!request) return "";
+    request.cancelled = true;
+    if (reason !== "interrupted") return "cancelled";
+    this.#request = null;
+    this.game.endGroup();
+    return `taken back${this.#takeBack(request.before)}`;
+  }
+
+  #request: { cancelled: boolean; before: Snapshot } | null = null;
+
+  // The game as it was before a failed request.
+  #takeBack(before: Snapshot): string {
+    this.game.restore(before);
+    return " (nothing it did was kept)";
+  }
+
+  // What a script reaches the game by; for a control-bus request, each
+  // command refused once the bus has stopped it.
+  #scriptHost(request?: { cancelled: boolean }): ScriptHost {
+    const live = () => {
+      if (request?.cancelled) throw new Error("the request was stopped");
+    };
+    return {
+      game: this.game,
+      run: (line: string) => (live(), this.run(line)),
+      execute: (id: string, params: Record<string, string>) => (live(), this.execute(id, params)),
+    };
   }
 }

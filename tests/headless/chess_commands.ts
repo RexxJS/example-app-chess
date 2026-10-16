@@ -1,7 +1,9 @@
 // app/chess/commands.ts: each command run by id with string parameters,
 // its refusal of a bad parameter, and the game's undo of each move it
 // made; a command line parsed and written; the journal; game.state.
-import { Commands, legalMovesOf, lineOf, parseLine } from "./chess/commands.ts";
+import { Commands } from "./chess/commands.ts";
+import { legalMovesOf } from "./chess/game.ts";
+import { lineOf, parseLine } from "./chess/line.ts";
 import { START_FEN } from "./chess/parser.ts";
 import { eq } from "./lib/check.ts";
 
