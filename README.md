@@ -40,7 +40,8 @@ app/
                     think.ts (its search in slices, a timer apart),
                     analysis.ts (a position's value and line, a hint),
                     book.ts (the opening book: names, book moves),
-                    clock.ts (clocks: a time control, the flag)
+                    clock.ts (clocks: a time control, the flag),
+                    puzzle.ts (puzzles: mate in n, checked)
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
                     click or drag to move), promotion.ts, sidebar.ts

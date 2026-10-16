@@ -63,6 +63,7 @@ spec_app_chess_files|CHESS_FILES_PHASE=1 SAE_STORAGE_DIR=$T/storage/files AETHER
 spec_app_chess_files_relaunch|CHESS_FILES_PHASE=2 SAE_STORAGE_DIR=$T/storage/files AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-files-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess_files
 spec_app_chess_book|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-book-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_book
 spec_app_chess_clock|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-clock-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_clock
+spec_app_chess_puzzle|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-puzzle-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_puzzle
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
 mcp||mcp

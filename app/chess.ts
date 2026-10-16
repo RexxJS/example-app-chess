@@ -22,6 +22,7 @@ import { moveField } from "./chess/view/keyboard.ts";
 import { looks } from "./chess/view/looks.ts";
 import { analysisPanel } from "./chess/view/analysis.ts";
 import { setupPanel } from "./chess/view/setup.ts";
+import { puzzlePanel } from "./chess/view/puzzles.ts";
 
 // The app's storage keeps its games and the game in progress (5.3).
 const v = new ChessView(new Commands(undefined, typeof storage !== "undefined" ? storage : null));
@@ -45,6 +46,7 @@ ui.vstack(() => {
   v.measure = () => ({ beside: ui.width(beside), above: ui.height(above) });
   promotionBar(v);
   clockButtons(v);
+  puzzlePanel(v);
   analysisPanel(v);
   moveField(v);
   setupPanel(v);

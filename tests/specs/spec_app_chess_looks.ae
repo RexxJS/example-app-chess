@@ -26,6 +26,19 @@ wait_board_over(w: int) -> int {
     return 0
 }
 
+// The board is `w` pixels, polling (a console line of that size may be an
+// earlier one: the board passes through sizes as the window changes).
+wait_board_is(w: int) -> int {
+    i = 0
+    while i < 60 {
+        bw, _bh = c.board_wh()
+        if bw == w { return 1 }
+        sleep(50)
+        i = i + 1
+    }
+    return 0
+}
+
 wait_board_under(w: int) -> int {
     i = 0
     while i < 60 {
@@ -99,14 +112,14 @@ main() {
         spec.it("Larger, Smaller: a size by hand, which the window does not change; Fit board follows it again") callback {
             w0, _h0 = c.board_wh()
             b.click("Larger")
-            spec.assert_true(b.wait_for_console("chess: the board is ${w0 + 80} pixels"), "Larger: 80 px more")
+            spec.assert_true(wait_board_is(w0 + 80), "Larger: 80 px more")
             w1, h1 = c.board_wh()
             spec.assert_eq(w1, w0 + 80, "larger (${w0} to ${w1})")
             spec.assert_eq(w1, h1, "square")
             spec.assert_true(c.wait_piece("e1", 0, "♔"), "the pieces there")
             b.click("Smaller")
             b.click("Smaller")
-            spec.assert_true(b.wait_for_console("chess: the board is ${w0 - 80} pixels"), "Smaller twice")
+            spec.assert_true(wait_board_is(w0 - 80), "Smaller twice")
             uidriver.resize_window(1400, 1200)
             sleep(800)
             w2, h2 = c.board_wh()

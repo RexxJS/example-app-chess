@@ -17,6 +17,7 @@ import type { Analysis } from "./analysis.ts";
 import { bookMove, bookMoves } from "./book.ts";
 import { timeText } from "./clock.ts";
 import type { ClockState } from "./clock.ts";
+import type { PuzzleState } from "./puzzle.ts";
 
 export interface Done {
   readonly ok: boolean;
@@ -151,6 +152,14 @@ export const CONTROL: Readonly<Record<string, Control>> = {
     if (!st) return { control: "", white: "", black: "", running: "", flag: "", whiteText: "", blackText: "" };
     return { control: st.control, white: Math.round(st.white / 100) / 10, black: Math.round(st.black / 100) / 10, running: st.running, flag: st.flag, whiteText: timeText(st.white), blackText: timeText(st.black) };
   },
+  LOADPUZZLE: (exec, _g, n) => must(exec, "puzzle.load", { n: text(n) === "" ? "1" : text(n) }).output,
+  PUZZLESOLVED: (exec) => ((must(exec, "puzzle.state").output as PuzzleState | null)?.state === "solved" ? 1 : 0),
+  GETPUZZLE: (exec) => {
+    const st = must(exec, "puzzle.state").output as PuzzleState | null;
+    return st ?? { index: 0, count: 0, title: "", goal: "", solver: "", left: 0, state: "", why: "" };
+  },
+  LISTPUZZLES: (exec) => stem(must(exec, "puzzle.list").output as string[]),
+  IMPORTPUZZLES: (exec, _g, t) => must(exec, "puzzle.import", { text: text(t) }).output,
   OPENINGNAME: (exec) => state(exec).opening,
   BOOKMOVES: (_e, game) => stem(bookMoves(game)),
   SETBOOK: (exec, _g, on) => must(exec, "ai.book", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,

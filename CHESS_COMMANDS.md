@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-50 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+55 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -68,6 +68,11 @@ the bus and the MCP server give back.
 | [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
 | [`SETCLOCK(control, [white], [black])`](#setclock) | Sets the clocks: the side to move's runs from now, a move adds the increment to the side that made it, and the side whose flag falls loses on time (a draw when the other cannot mate); a new game starts them again | the control, as "5+3"; "" for none |
 | [`GETCLOCK()`](#getclock) | The clocks, charged to now | {control, white, black: seconds left (to a tenth), running: "white", "black" or "", flag: whose flag fell or "", whiteText, blackText: as the clocks show them, "4:57", "0:09.4"}; all "" with no clocks |
+| [`LOADPUZZLE(n)`](#loadpuzzle) | Sets up a puzzle: its position, the side to move to mate in so many moves; each of its moves is checked (it must keep a forced mate in the moves left), and the computer makes the defence that holds out longest | the puzzle's title |
+| [`PUZZLESOLVED()`](#puzzlesolved) | Whether the puzzle under way is solved: mate given within its moves | 1 or 0 |
+| [`GETPUZZLE()`](#getpuzzle) | The puzzle under way | {index, count, title, goal: "mate in 2", solver: the side solving it, left: its moves left, state: solving, solved or failed, why: what went wrong}; index 0 for none |
+| [`LISTPUZZLES()`](#listpuzzles) | The puzzles of the set | a stem of "<title> (mate in <n>)" |
+| [`IMPORTPUZZLES(text)`](#importpuzzles) | Reads a set of puzzles in place of this one (the app's own, at first) | how many it has |
 | [`OPENINGNAME()`](#openingname) | The name of the opening the game is in: the last position of the opening book (written for this app from the openings' public names) the game passed through, transpositions too | e.g. "Ruy Lopez, Morphy Defence"; "" before the first named position, or for a game set up from another |
 | [`BOOKMOVES()`](#bookmoves) | The opening book's moves from the position now | a stem of moves in SAN; none once the game is out of the book |
 | [`SETBOOK([on])`](#setbook) | Whether the computer plays from the opening book while the game is in it (AIMOVE then makes a book move at once, chosen by the position) | 1 when on, else 0 |
@@ -462,6 +467,54 @@ GETCLOCK()
 ```
 
 The clocks, charged to now. Gives {control, white, black: seconds left (to a tenth), running: "white", "black" or "", flag: whose flag fell or "", whiteText, blackText: as the clocks show them, "4:57", "0:09.4"}; all "" with no clocks.
+
+### LOADPUZZLE
+
+```rexx
+LOADPUZZLE(n)
+```
+
+Sets up a puzzle: its position, the side to move to mate in so many moves; each of its moves is checked (it must keep a forced mate in the moves left), and the computer makes the defence that holds out longest. Gives the puzzle's title.
+
+| Parameter | Kind | |
+|---|---|---|
+| `n` | number | which of the set, from 1 |
+
+### PUZZLESOLVED
+
+```rexx
+PUZZLESOLVED()
+```
+
+Whether the puzzle under way is solved: mate given within its moves. Gives 1 or 0.
+
+### GETPUZZLE
+
+```rexx
+GETPUZZLE()
+```
+
+The puzzle under way. Gives {index, count, title, goal: "mate in 2", solver: the side solving it, left: its moves left, state: solving, solved or failed, why: what went wrong}; index 0 for none.
+
+### LISTPUZZLES
+
+```rexx
+LISTPUZZLES()
+```
+
+The puzzles of the set. Gives a stem of "<title> (mate in <n>)".
+
+### IMPORTPUZZLES
+
+```rexx
+IMPORTPUZZLES(text)
+```
+
+Reads a set of puzzles in place of this one (the app's own, at first). Gives how many it has.
+
+| Parameter | Kind | |
+|---|---|---|
+| `text` | text | a puzzle a line: <FEN> ; mate in <n> ; <title>, "#" for a comment |
 
 ### OPENINGNAME
 

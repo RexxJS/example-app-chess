@@ -1,0 +1,71 @@
+// spec_app_chess_puzzle.ae — puzzles (app/chess/puzzle.ts, TODO.md 6.4):
+// Puzzle sets one up and says its goal; a mate by clicks solves it; the
+// computer defends; a wrong move fails it and Undo tries again; Open
+// puzzles reads a set from a file the person picks; LOADPUZZLE() and
+// PUZZLESOLVED() over the control bus.
+//   ./run-tests.sh spec_app_chess_puzzle
+import std.spec
+import std.string
+import std.fs
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+tmp_dir() -> string {
+    t = os_getenv("TMPDIR")
+    if t == null { return "/tmp" }
+    while string.ends_with(t, "/") == 1 { t = string.substring(t, 0, string.length(t) - 1) }
+    return t
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    dir = "${tmp_dir()}/sae-chess-puzzles"
+    _m = fs.mkdir_p(dir)
+    _w = fs.write("${dir}/mine.txt", "# a set of one\n6rk/6pp/8/6N1/8/8/8/6K1 w - - 0 1 ; mate in 1 ; Smothered, from a file\n")
+    spec.describe(fw, "puzzles") {
+        spec.it("Puzzle: the first set up, its goal said; a mate by clicks solves it") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            b.click("Puzzle")
+            spec.assert_true(b.wait_for_text("Puzzle 1 of 10, The back rank: white to play and mate in 1. 1 move left"), "its goal")
+            spec.assert_true(c.wait_fen("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1"), "its position")
+            c.click_square("a1", 0)
+            c.click_square("a8", 0)
+            spec.assert_true(b.wait_for_text("Puzzle 1 of 10, The back rank: white to play and mate in 1. Solved!"), "solved")
+        }
+        spec.it("a mate in two: the computer defends, the mate solves it") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, got = command_(key, "LOADPUZZLE(5)")
+            spec.assert_contains(got, "\"result\":\"The rook ladder\"", "LOADPUZZLE over the bus")
+            spec.assert_true(b.wait_for_text("Puzzle 5 of 10, The rook ladder: white to play and mate in 2. 2 moves left"), "two moves")
+            c.click_square("a2", 0)
+            c.click_square("a7", 0)
+            spec.assert_true(c.wait_moves("Ra7 Kg8"), "the defence made at once")
+            spec.assert_true(b.wait_for_text("Puzzle 5 of 10, The rook ladder: white to play and mate in 2. 1 move left"), "one left")
+            c.click_square("b1", 0)
+            c.click_square("b8", 0)
+            spec.assert_true(b.wait_for_text("Puzzle 5 of 10, The rook ladder: white to play and mate in 2. Solved!"), "solved")
+            _s2, solved = command_(key, "PUZZLESOLVED()")
+            spec.assert_contains(solved, "\"result\":1", "PUZZLESOLVED() over the bus")
+        }
+        spec.it("a wrong move fails it; Undo tries again") callback {
+            _u, key = courier_()
+            _s, _g = command_(key, "LOADPUZZLE(5)")
+            c.click_square("b1", 0)
+            c.click_square("b8", 0)
+            spec.assert_true(c.wait_text_starting("Puzzle 5 of 10, The rook ladder: white to play and mate in 2. Not solved: after that the mate can be escaped", 3), "failed, and why")
+            b.click("Undo")
+            spec.assert_true(b.wait_for_text("Puzzle 5 of 10, The rook ladder: white to play and mate in 2. 2 moves left"), "solving again")
+        }
+        spec.it("Open puzzles: a set from a file") callback {
+            uidriver.answer_prompt("open", "${dir}/mine.txt")
+            b.click("Open puzzles")
+            spec.assert_true(b.wait_for_text("Puzzle 1 of 1, Smothered, from a file: white to play and mate in 1. 1 move left"), "its one puzzle set up")
+        }
+    }
+    return spec.run_summary(fw)
+}

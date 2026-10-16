@@ -193,5 +193,8 @@ export function fromFen(fen: string): Position {
   p.halfmoveClock = Number(halfmove);
   p.fullmoveNumber = Number(fullmove);
   p.updateHashKey();
+  // The side that has just moved cannot be left in check: its king would be taken.
+  const moved = p.turn === PieceColor.WHITE ? PieceColor.BLACK : PieceColor.WHITE;
+  if (p.isAttacked(p.turn, p.getKingPosition(moved))) throw new Error(`FEN: ${moved === PieceColor.WHITE ? "white" : "black"} is in check with ${p.turn === PieceColor.WHITE ? "white" : "black"} to move`);
   return p;
 }

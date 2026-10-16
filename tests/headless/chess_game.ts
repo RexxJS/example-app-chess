@@ -116,7 +116,7 @@ m.setPosition("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1");
 eq("stalemate said, and a set position's own pieces the base", [m.statusText(), m.captured()], ["stalemate: black has no move, a draw (1/2-1/2)", { byWhite: [], byBlack: [], balance: 9 }]);
 m.setPosition("8/8/8/4k3/8/8/8/4K3 w - - 0 1");
 eq("insufficient material said", m.statusText(), "a draw: neither side has the pieces to mate (1/2-1/2)");
-m.setPosition("7k/8/8/8/8/8/8/K6R w - - 100 80");
+m.setPosition("7k/8/8/8/8/8/8/K5R1 w - - 100 80");
 eq("the fifty-move rule said", m.statusText(), "a draw by the fifty-move rule: fifty moves each with no capture or pawn move (1/2-1/2)");
 m.newGame(); m.move(m.find("e4")!); m.resign();
 eq("a resignation said", m.statusText(), "black resigned: white wins (1-0)");

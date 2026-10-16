@@ -11,6 +11,7 @@ import type { State } from "../game.ts";
 import { think } from "../think.ts";
 import { bookMove } from "../book.ts";
 import { timeText } from "../clock.ts";
+import { puzzleLine } from "./puzzles.ts";
 import type { ClockState } from "../clock.ts";
 
 /** The clocks in a line: the running one marked "▸", a fallen flag said. */
@@ -48,6 +49,8 @@ export class ChessView {
   readonly kept = state<string[]>([]);
   /** The piece the editor puts on a square clicked (a FEN letter), "" for emptying it. */
   readonly brush = state("K");
+  /** The puzzle under way, in a line (view/puzzles.ts); "" for none. */
+  readonly puzzle = state("");
   /** The clocks as shown: "Clocks: ▸ white 4:57 | black 5:00", or "Clocks: none". */
   readonly clock = state("Clocks: none");
   /** What the computer is doing: "" when it is not thinking, else how far it has got. */
@@ -394,7 +397,9 @@ export class ChessView {
     const king = s.check && !editing ? pieces.indexOf(s.turn === "white" ? "K" : "k") : -1;
     const kept = this.cmds.execute("game.kept").output as string[];
     const clock = this.cmds.clock ? clockLine(this.cmds.clock.state()) : "Clocks: none";
+    const puzzle = puzzleLine(this.cmds.puzzles.state());
     batch(() => {
+      if (this.puzzle.value !== puzzle) this.puzzle.set(puzzle);
       if (this.clock.value !== clock) this.clock.set(clock);
       if (kept.join("\n") !== this.kept.value.join("\n")) this.kept.set(kept);
       this.game.set(s);

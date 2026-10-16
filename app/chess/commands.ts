@@ -15,6 +15,7 @@ import { getIndexFromAlgebraic } from "./chess.ts";
 import { AI, depthOf } from "./ai.ts";
 import { bookMove } from "./book.ts";
 import { Clock, controlOf, timeText } from "./clock.ts";
+import { Puzzles } from "./puzzle.ts";
 import { analyze, lineText } from "./analysis.ts";
 import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
@@ -416,6 +417,45 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "puzzle.load", label: "A puzzle", params: ["n"], journaled: true,
+    // Puzzle n of the set (puzzle.ts) on the board: the side to move mates in so many moves, checked move by move, the computer defending.
+    run: (game, p, _store, cmds) => {
+      let run;
+      try {
+        run = cmds.puzzles.load(game, Number(p.n));
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `puzzle ${run!.index} of ${cmds.puzzles.set.length}, ${run!.puzzle.title}: ${run!.solver} to play and mate in ${run!.puzzle.mateIn}`, output: run!.puzzle.title };
+    },
+  },
+  {
+    id: "puzzle.import", label: "Puzzles from a file", params: ["text"], journaled: false,
+    run: (_game, p, _store, cmds) => {
+      let n = 0;
+      try {
+        n = cmds.puzzles.import(p.text);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `${n} puzzles read`, output: n };
+    },
+  },
+  {
+    id: "puzzle.list", label: "The puzzles", params: [], journaled: false,
+    run: (_game, _p, _store, cmds) => {
+      const list = cmds.puzzles.set.map((z) => `${z.title} (mate in ${z.mateIn})`);
+      return { ok: true, message: `${list.length} puzzles`, output: list };
+    },
+  },
+  {
+    id: "puzzle.state", label: "The puzzle", params: [], journaled: false,
+    run: (_game, _p, _store, cmds) => {
+      const st = cmds.puzzles.state();
+      return { ok: true, message: st ? `${st.title}: ${st.state}${st.why ? ` (${st.why})` : ""}` : "no puzzle", output: st };
+    },
+  },
+  {
     id: "game.state", label: "The game's state", params: [], journaled: false,
     run: (game) => ({ ok: true, message: `${game.turn()} to move, ${game.status()}`, output: stateOf(game) }),
   },
@@ -423,7 +463,7 @@ export const SPECS: readonly Spec[] = [
 
 const BY_ID = new Map(SPECS.map((s) => [s.id, s]));
 // The commands that start a game again, and the clocks with it.
-const RESTARTS = ["game.new", "game.setPosition", "game.import", "game.importPgn", "game.open"];
+const RESTARTS = ["game.new", "game.setPosition", "game.import", "game.importPgn", "game.open", "puzzle.load"];
 
 export class Commands {
   readonly game: Game;
@@ -431,6 +471,8 @@ export class Commands {
   readonly store: Store | null;
   readonly #journal: string[] = [];
   #autosaved = "";
+  /** The puzzles (puzzle.ts): the set, and the one being solved. */
+  readonly puzzles = new Puzzles();
   /** The clocks (clock.ts), or null for none (clock.set). */
   clock: Clock | null = null;
   /** The time in ms, which the clocks read: Date.now in the page, a fake in a test. */
@@ -491,6 +533,8 @@ export class Commands {
       if (this.clock) this.tick();
       const outcome = spec!.run(this.game, params, this.store, this);
       if (outcome.ok && spec!.journaled) this.#journal.push(lineOf(id, params));
+      // A puzzle under way follows the game: the solver's move checked, the defence made.
+      if (outcome.ok && spec!.journaled && id !== "puzzle.load") this.puzzles.changed(this.game, id);
       if (outcome.ok && this.clock && spec!.journaled) {
         // A new game (or a position, or one opened) starts the clocks again.
         if (RESTARTS.includes(id)) this.clock.reset(this.game, this.now());

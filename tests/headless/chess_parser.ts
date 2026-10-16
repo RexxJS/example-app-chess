@@ -87,10 +87,12 @@ eq("disambiguation: by file, by rank, by both", [
   toSan(twoKnights, parseMove(twoKnights, "c3e4")!), toSan(twoKnights, parseMove(twoKnights, "g5e4")!),
   san("4k3/8/8/8/8/8/4K3/R6R w - - 0 1", "a1d1"),
   san("4k3/8/8/R7/8/8/8/R3K3 w - - 0 1", "a1a3"),
-  san("3k4/8/8/8/4Q2Q/8/8/K6Q w - - 0 1", "h4e1"),
+  san("2k5/8/8/8/4Q2Q/8/8/K6Q w - - 0 1", "h4e1"),
 ], ["Nce4", "Nge4", "Rad1", "R1a3", "Qh4e1"]);
 eq("toSan leaves the position as it was", (() => { const p = fromFen(START_FEN); const before = toFen(p); toSan(p, parseMove(p, "e4")!); return toFen(p) === before && p.madeMoves.length === 0; })(), true);
 eq("every legal move of Kiwipete reads back from its SAN", (() => { const p = fromFen(fens[1]); return p.getMoves().every((m) => parseMove(p, toSan(p, m))?.isEqual(m)); })(), true);
+
+throws("a position whose side not to move is in check", () => fromFen("k7/8/8/8/8/3K4/8/7Q w - - 0 1"), Error, "FEN: black is in check with white to move");
 
 // expect: ok clean strips comments, nested, and what is not notation
 // expect: ok Kasparov v The World read to its end: black's three pieces
@@ -120,3 +122,4 @@ eq("every legal move of Kiwipete reads back from its SAN", (() => { const p = fr
 // expect: ok disambiguation: by file, by rank, by both
 // expect: ok toSan leaves the position as it was
 // expect: ok every legal move of Kiwipete reads back from its SAN
+// expect: ok a position whose side not to move is in check
