@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-39 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+41 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -50,6 +50,8 @@ the bus and the MCP server give back.
 | [`GAMESCRIPT()`](#gamescript) | The game as a REXX program that plays it again: NEWGAME() (or SETPOSITION of where it started), then a MOVE line a move | the program's text, a line a move |
 | [`EXPORTGAME()`](#exportgame) | The game as its file (what Save writes): where it started, its moves, who the computer plays, its level, the flip | the file's JSON: {format: "sae-chess-game", version: 1, start, moves, aiLevel, aiSide, flipped} |
 | [`IMPORTGAME(file)`](#importgame) | Opens a game from its file's JSON, in place of this one (what Open reads) | how many moves it has |
+| [`EXPORTPGN()`](#exportpgn) | The game in PGN: the seven tag roster (and the tags of a game read from PGN), SetUp and FEN when it did not start from the usual position, the moves in SAN, the result; comments and variations a PGN read had come back after their moves | the PGN text |
+| [`IMPORTPGN(pgn)`](#importpgn) | Reads a game from PGN in place of this one: its moves played, its result (a resignation or agreed draw when the moves do not reach it); comments, variations and annotations kept for EXPORTPGN | how many moves it has |
 | [`GETTURN()`](#getturn) | Whose move it is | "white" or "black" |
 | [`GETRESULT()`](#getresult) | The result | "1-0", "0-1", "1/2-1/2", or "*" while the game goes on |
 | [`PIECEAT(square)`](#pieceat) | What stands on a square | its FEN letter: K Q R B N P for white, k q r b n p for black, "" for none |
@@ -269,6 +271,26 @@ Opens a game from its file's JSON, in place of this one (what Open reads). Gives
 | Parameter | Kind | |
 |---|---|---|
 | `file` | json | a game file, as EXPORTGAME gives one |
+
+### EXPORTPGN
+
+```rexx
+EXPORTPGN()
+```
+
+The game in PGN: the seven tag roster (and the tags of a game read from PGN), SetUp and FEN when it did not start from the usual position, the moves in SAN, the result; comments and variations a PGN read had come back after their moves. Gives the PGN text.
+
+### IMPORTPGN
+
+```rexx
+IMPORTPGN(pgn)
+```
+
+Reads a game from PGN in place of this one: its moves played, its result (a resignation or agreed draw when the moves do not reach it); comments, variations and annotations kept for EXPORTPGN. Gives how many moves it has.
+
+| Parameter | Kind | |
+|---|---|---|
+| `pgn` | text | a PGN text; its first game is read |
 
 ### GETTURN
 

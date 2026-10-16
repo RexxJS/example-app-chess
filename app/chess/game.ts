@@ -13,6 +13,8 @@ import type { PieceColor as Color } from "./chess.ts";
 import { Move } from "./move.ts";
 import { Position, Status } from "./position.ts";
 import { START_FEN, fromFen, parseMove, toFen, toSan } from "./parser.ts";
+import { parsePgn, toPgn } from "./pgn.ts";
+import type { PgnKept } from "./pgn.ts";
 
 export type Side = "white" | "black";
 export type AiSide = "white" | "black" | "both" | "none";
@@ -71,6 +73,7 @@ export interface Snapshot {
   readonly flipped: boolean;
   readonly dark?: boolean;
   readonly boardSize?: number;
+  readonly pgn?: PgnKept | null;
 }
 
 export class Game {
@@ -92,6 +95,8 @@ export class Game {
   dark = false;
   /** The board's size on the page, in pixels (view.boardSize); not part of a game file. */
   boardSize = 480;
+  /** What a game read from PGN keeps besides its moves (its tags, comments, variations), to write again; null for a game not read so. */
+  pgn: PgnKept | null = null;
   /** Set while a group is open: the step the moves made since fold into (its index in `steps`), or -1 before its first move. */
   #group: number | null = null;
 
@@ -219,6 +224,7 @@ export class Game {
     this.redoSteps = [];
     this.resigned = null;
     this.drawAgreed = false;
+    this.pgn = null;
     if (this.#group !== null) this.#group = -1;
   }
 
@@ -404,6 +410,47 @@ export class Game {
     this.redoSteps = [];
   }
 
+  // ---- the game as PGN (pgn.ts)
+
+  /** The game as PGN, its kept tags and notes with it. */
+  toPgn(date?: string): string {
+    return toPgn(this, date);
+  }
+
+  /**
+   * The first game of a PGN text, in place of this one: its moves played
+   * from its start, its result (a decisive or drawn one the moves did not
+   * reach is a resignation or an agreed draw), what it kept. Throws saying
+   * what is wrong, and then this game is as it was.
+   */
+  fromPgn(text: string): void {
+    const p = parsePgn(text);
+    let g: Game;
+    try {
+      g = new Game(p.start);
+    } catch (e) {
+      throw new Error(`PGN: its FEN: ${(e as Error).message}`);
+    }
+    for (const [i, san] of p.moves.entries()) {
+      const move = g.find(san);
+      if (!move) throw new Error(`PGN: move ${Math.floor(i / 2) + 1}${(i % 2) ? "..." : "."} ${san} is not legal there`);
+      g.move(move);
+    }
+    if (!g.isOver()) {
+      if (p.result === "1-0") g.resign("black");
+      else if (p.result === "0-1") g.resign("white");
+      else if (p.result === "1/2-1/2") g.agreeDraw();
+    }
+    g.pgn = { tags: p.tags, lead: p.lead, notes: p.notes, sans: p.sans };
+    g.aiLevel = this.aiLevel;
+    g.aiSide = this.aiSide;
+    g.flipped = this.flipped;
+    g.dark = this.dark;
+    g.boardSize = this.boardSize;
+    this.restore(g.saved());
+    this.redoSteps = [];
+  }
+
   // ---- put away and put back
 
   saved(): Snapshot {
@@ -419,6 +466,7 @@ export class Game {
       flipped: this.flipped,
       dark: this.dark,
       boardSize: this.boardSize,
+      ...(this.pgn ? { pgn: this.pgn } : {}),
     };
   }
 
@@ -456,6 +504,7 @@ export class Game {
     this.flipped = s.flipped;
     this.dark = s.dark === true;
     if (typeof s.boardSize === "number") this.boardSize = s.boardSize;
+    this.pgn = s.pgn ?? null;
     this.#group = group === null ? null : -1;
   }
 }

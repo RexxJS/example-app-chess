@@ -1,7 +1,8 @@
 // The buttons and the menu bar: New game, Undo, Redo, Flip, Resign, Offer
 // draw; Computer move and Stop (it thinks in slices, think.ts); who plays (the person as white, as black, both sides, or the
-// computer both); the computer's level; Open and Save (a game file the
-// person picks, through documents). Each runs a command; the menu bar
+// computer both); the computer's level; Open (the app's own game file, or
+// a PGN), Save and Save PGN, a file the person picks, through documents.
+// Each runs a command; the menu bar
 // (an installed app's, sae's ui.menu) runs the same.
 import type { ChessView } from "./view.ts";
 import type { AiSide } from "../game.ts";
@@ -31,6 +32,7 @@ export function toolbar(v: ChessView): void {
     if (typeof documents !== "undefined") {
       ui.btn("Open", () => openGame(v));
       ui.btn("Save", () => saveGame(v));
+      ui.btn("Save PGN", () => savePgn(v));
     }
   });
   ui.hstack(() => {
@@ -54,6 +56,7 @@ export function menuBar(v: ChessView): void {
     if (typeof documents !== "undefined") {
       ui.menu_item("Open...", () => openGame(v));
       ui.menu_item("Save...", () => saveGame(v));
+      ui.menu_item("Save as PGN...", () => savePgn(v));
     }
     ui.menu_separator();
     ui.menu_item("Resign", () => v.run("game.resign"));
@@ -93,7 +96,9 @@ function openGame(v: ChessView): Promise<void> {
   return tried(v, async () => {
     const d = await documents.pick_open("Open a chess game");
     if (!d) return;
-    const o = v.run("game.import", { text: await d.read_text() });
+    // The app's own file is JSON; anything else is read as PGN.
+    const text = await d.read_text();
+    const o = v.run(text.trimStart().startsWith("{") ? "game.import" : "game.importPgn", { text });
     if (o.ok) print(`chess: opened ${d.name}`);
   });
 }
@@ -105,5 +110,15 @@ function saveGame(v: ChessView): Promise<void> {
     await d.write_text(String(v.cmds.execute("game.export").output));
     print(`chess: saved ${d.name}`);
     v.status.set(`Saved ${d.name}`);
+  });
+}
+
+function savePgn(v: ChessView): Promise<void> {
+  return tried(v, async () => {
+    const d = await documents.pick_save("game.pgn");
+    if (!d) return;
+    await d.write_text(String(v.cmds.execute("game.exportPgn").output));
+    print(`chess: saved ${d.name}`);
+    v.status.set(`Saved ${d.name} (PGN)`);
   });
 }

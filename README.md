@@ -33,7 +33,8 @@ app/
                     (every action a command: id, label, params), control.ts
                     and described.ts (the REXX functions, each described),
                     script.ts (REXX scripts: ADDRESS CHESS, the old
-                    commands by their old names), line.ts (a command
+                    commands by their old names), pgn.ts (PGN written
+                    and read), line.ts (a command
                     line), rexxjs.js (RexxJS, generated), ai.ts (the
                     computer player: alpha-beta, ported from src/ai.js),
                     think.ts (its search in slices, a timer apart),

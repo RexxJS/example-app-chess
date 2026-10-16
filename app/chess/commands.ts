@@ -238,6 +238,21 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.exportPgn", label: "The game as PGN", params: [], journaled: false,
+    run: (game) => ({ ok: true, message: `the game as PGN: ${game.made.length} moves`, output: game.toPgn() }),
+  },
+  {
+    id: "game.importPgn", label: "Read a game in PGN", params: ["text"], journaled: true,
+    run: (game, p) => {
+      try {
+        game.fromPgn(p.text);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `read a game of ${game.made.length} moves from PGN: ${game.isOver() ? `${game.status()}, ${game.result()}` : `${game.turn()} to move`}`, output: game.made.length };
+    },
+  },
+  {
     id: "view.dark", label: "Dark mode", params: [], optional: ["on"], journaled: true,
     run: (game, p) => {
       if (p.on !== undefined && !/^(0|1|on|off|true|false|yes|no)$/i.test(p.on.trim())) refuse(`${p.on} is not on or off (1 or 0)`);

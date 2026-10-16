@@ -24,6 +24,7 @@ main() {
     dir = "${tmp_dir()}/sae-chess-files"
     _m = fs.mkdir_p(dir)
     _d = fs.delete("${dir}/saved.chess.json")
+    _d2 = fs.delete("${dir}/saved.pgn")
     spec.describe(fw, "the buttons") {
         spec.it("Undo, Redo, Flip, Resign, Offer draw and New game run their commands") callback {
             spec.assert_true(b.wait_for_vg_canvas(), "the board")
@@ -68,7 +69,7 @@ main() {
     spec.describe(fw, "the menu bar") {
         spec.it("has the commands by menu, and an item runs its command") callback {
             body = uidriver.menus_body()
-            spec.assert_contains(body, "\"New game\",\"Open...\",\"Save...\",\"Resign\",\"Offer draw\"", "Game")
+            spec.assert_contains(body, "\"New game\",\"Open...\",\"Save...\",\"Save as PGN...\",\"Resign\",\"Offer draw\"", "Game")
             spec.assert_contains(body, "\"Undo\",\"Redo\"", "Edit")
             spec.assert_contains(body, "\"Flip board\"", "Board")
             spec.assert_contains(body, "\"Play as white\",\"Play as black\",\"Play both sides\",\"Computer plays both\",\"Level 1\"", "Computer")
@@ -100,6 +101,28 @@ main() {
             spec.assert_true(b.wait_for_console("chess: opened saved.chess.json"), "opened")
             spec.assert_true(c.wait_moves("d4 d5"), "its moves back")
             spec.assert_true(c.wait_piece("d5", 0, "♟"), "on the board")
+        }
+        spec.it("Save PGN writes the game in PGN; Open reads a PGN back") callback {
+            b.click("New game")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            c.click_square("e7", 0)
+            c.click_square("e5", 0)
+            spec.assert_true(c.wait_moves("e4 e5"), "two moves")
+            uidriver.answer_prompt("save", "${dir}/saved.pgn")
+            b.click("Save PGN")
+            spec.assert_true(b.wait_for_console("chess: saved saved.pgn"), "saved")
+            body, _e = fs.read("${dir}/saved.pgn")
+            spec.assert_contains(body, "[Event \"Casual game\"]", "the seven tag roster")
+            spec.assert_contains(body, "[Result \"*\"]", "with the result")
+            spec.assert_contains(body, "1. e4 e5 *", "the moves")
+            b.click("New game")
+            spec.assert_true(c.wait_moves(""), "a new game")
+            uidriver.answer_prompt("open", "${dir}/saved.pgn")
+            b.click("Open")
+            spec.assert_true(b.wait_for_console("chess: opened saved.pgn"), "opened")
+            spec.assert_true(c.wait_moves("e4 e5"), "its moves back")
+            spec.assert_true(b.wait_for_text("read a game of 2 moves from PGN: white to move"), "read as PGN")
         }
     }
     spec.describe(fw, "the script panel") {
