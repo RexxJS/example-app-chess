@@ -48,10 +48,10 @@ eq("RESIGN gives the result", [fns.RESIGN(), fns.GETRESULT(), fns.GETSTATUS().st
 throws("no move after the end", () => fns.MOVESAN("Kg6"), Error, "the game is over (resigned, 1-0)");
 fns.UNDO();
 eq("RESIGN with a side; OFFERDRAW", [fns.RESIGN("white"), fns.UNDO(), fns.OFFERDRAW()], ["0-1", 1, "1/2-1/2"]);
-eq("the computer player's settings; AIMOVE until stage 4", [fns.SETAIDIFFICULTY(3), fns.GETAIDIFFICULTY(), fns.SETAISIDE("black")], [3, 3, "black"]);
+eq("the computer player's settings", [fns.SETAIDIFFICULTY(3), fns.GETAIDIFFICULTY(), fns.SETAISIDE("black")], [3, 3, "black"]);
 throws("a level that is none", () => fns.SETAIDIFFICULTY(7), Error, "7 is not a level (1 to 4)");
 fns.NEWGAME();
-throws("AIMOVE until stage 4", () => fns.AIMOVE(), Error, "no computer player yet (stage 4 of TODO.md)");
+eq("AIMOVE: the computer's move, in SAN; UNDO takes it back", [fns.AIMOVE(), fns.UNDO(), fns.GETMOVEHISTORY()[0]], ["Nf3", 1, 0]);
 eq("FLIPBOARD", [fns.FLIPBOARD(), fns.FLIPBOARD()], [1, 0]);
 eq("CHESS_VERSION", fns.CHESS_VERSION(), "sae chess");
 fns.NEWGAME();
@@ -93,9 +93,9 @@ eq("with stop, the first failure is the call's error, and the rest are not run",
 // expect: ok RESIGN gives the result
 // expect: ok no move after the end
 // expect: ok RESIGN with a side; OFFERDRAW
-// expect: ok the computer player's settings; AIMOVE until stage 4
+// expect: ok the computer player's settings
 // expect: ok a level that is none
-// expect: ok AIMOVE until stage 4
+// expect: ok AIMOVE: the computer's move, in SAN; UNDO takes it back
 // expect: ok FLIPBOARD
 // expect: ok CHESS_VERSION
 // expect: ok GETCAPTURED

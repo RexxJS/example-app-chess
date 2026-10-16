@@ -33,8 +33,8 @@ app/
                     and described.ts (the REXX functions, each described),
                     script.ts (REXX scripts: ADDRESS CHESS, the old
                     commands by their old names), line.ts (a command
-                    line), rexxjs.js (RexxJS, generated); to come in
-                    TODO.md's order: ai.ts
+                    line), rexxjs.js (RexxJS, generated), ai.ts (the
+                    computer player: alpha-beta, ported from src/ai.js)
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
                     click or drag to move), promotion.ts, sidebar.ts

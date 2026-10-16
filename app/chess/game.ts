@@ -20,7 +20,7 @@ export type AiSide = "white" | "black" | "both" | "none";
 /** The board's sizes on the page, in pixels: the smallest, the largest, and a step of Smaller or Larger. */
 export const BOARD_SIZES = { min: 240, max: 960, step: 80 } as const;
 
-/** The levels the computer player plays at (stage 4 of TODO.md): depth 1 to 4. */
+/** The levels the computer player plays at (ai.ts): depth 1 to 4 half-moves. */
 export const LEVELS = [1, 2, 3, 4];
 
 /** What a game is at, in words: the position's status, or how it ended. */

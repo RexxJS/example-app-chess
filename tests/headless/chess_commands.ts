@@ -80,7 +80,7 @@ eq("a level that is none", refused("ai.level level=9"), "9 is not a level (1 to 
 eq("ai.side", [ok("ai.side side=Black"), ok("ai.side side=none")], ["the computer plays black", "the computer plays neither side"]);
 eq("a side that is none", refused("ai.side side=green"), "green is not a side (white, black, both or none)");
 c.run("game.new");
-eq("ai.move until stage 4", refused("ai.move"), "no computer player yet (stage 4 of TODO.md)");
+eq("ai.move: the computer plays at its level, one step of undo", [ok("ai.move"), ok("game.undo"), c.run("game.state").output.fen], ["the computer (white, level 4) played Nf3", "undid Nf3", START_FEN]);
 eq("view.dark: on, off, toggled, refused", [ok("view.dark on=1"), c.game.dark, ok("view.dark on=off"), ok("view.dark"), c.game.dark, refused("view.dark on=maybe")], ["dark mode", true, "light mode", "dark mode", true, "maybe is not on or off (1 or 0)"]);
 c.run("view.dark on=0");
 eq("view.boardSize: set, by a step, held to its limits, refused", [ok("view.boardSize px=640"), ok("view.boardSize by=80"), ok("view.boardSize by=800"), refused("view.boardSize px=100"), refused("view.boardSize px=big"), c.game.boardSize],
@@ -134,7 +134,7 @@ eq("its first lines", c.journal().slice(0, 4), ["game.move from=e2 to=e4", "game
 // expect: ok a level that is none
 // expect: ok ai.side
 // expect: ok a side that is none
-// expect: ok ai.move until stage 4
+// expect: ok ai.move: the computer plays at its level, one step of undo
 // expect: ok view.dark: on, off, toggled, refused
 // expect: ok view.boardSize: set, by a step, held to its limits, refused
 // expect: ok board.flip

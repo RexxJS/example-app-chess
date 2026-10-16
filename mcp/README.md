@@ -70,8 +70,9 @@ The tools' descriptions say it too:
   back whole.
 - **One call at a time**, each answered within 10 seconds, on this machine
   only (sae's `docs/control-bus.md`).
-- **No computer player yet** (stage 4 of `TODO.md`): `AIMOVE()` says so; the
-  client is the player.
+- **The computer player**: `AIMOVE()` (through `chess_call`) makes the
+  computer's move at the level `SETAIDIFFICULTY(n)` set, so a client can
+  play against it, or have it play both sides.
 
 ## Tests
 

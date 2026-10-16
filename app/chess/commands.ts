@@ -12,6 +12,7 @@
 // request that fails part way is taken back whole from a snapshot
 // (Game.saved/restore), so nothing it did is kept.
 import { getIndexFromAlgebraic } from "./chess.ts";
+import { AI, depthOf } from "./ai.ts";
 import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
 import { lineOf, parseLine } from "./line.ts";
@@ -151,7 +152,7 @@ export const SPECS: readonly Spec[] = [
     id: "game.offerDraw", label: "Offer a draw", params: [], journaled: true,
     run: (game) => {
       if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
-      // No one to decline yet: an offer is accepted (the computer player of stage 4 may decline).
+      // An offer is accepted: the computer player does not decline one (yet).
       game.agreeDraw();
       return { ok: true, message: "a draw is agreed: 1/2-1/2", output: game.result() };
     },
@@ -172,11 +173,15 @@ export const SPECS: readonly Spec[] = [
   },
   {
     id: "ai.move", label: "Computer move", params: [], journaled: true,
-    // Stage 4 of TODO.md brings the computer player (ai.ts); until then
-    // the command is here for scripts and the page, and says so.
+    // The computer player (ai.ts) at the game's level: its move is one
+    // step of undo, as a person's is; the same position at the same level
+    // gives the same move, so a journal of ai.move lines replays.
     run: (game) => {
       if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
-      return refuse("no computer player yet (stage 4 of TODO.md)");
+      const move = new AI().search(game.position, depthOf(game.aiLevel)) ?? refuse(`the computer has no move for ${game.turn()}`);
+      const who = game.turn();
+      const m = game.move(move);
+      return { ok: true, message: `the computer (${who}, level ${game.aiLevel}) played ${m.san}${game.isOver() ? ` (${game.status()}, ${game.result()})` : ""}`, output: m.san };
     },
   },
   {

@@ -54,10 +54,10 @@ the bus and the MCP server give back.
 | [`GETRESULT()`](#getresult) | The result | "1-0", "0-1", "1/2-1/2", or "*" while the game goes on |
 | [`PIECEAT(square)`](#pieceat) | What stands on a square | its FEN letter: K Q R B N P for white, k q r b n p for black, "" for none |
 | [`ISCHECK()`](#ischeck) | Whether the side to move is in check | 1 or 0 |
-| [`SETAIDIFFICULTY(level)`](#setaidifficulty) | Sets the computer player's level (its search depth) | the level |
+| [`SETAIDIFFICULTY(level)`](#setaidifficulty) | Sets the computer player's level: how many half-moves it looks ahead (then the captures that follow) | the level |
 | [`GETAIDIFFICULTY()`](#getaidifficulty) | The computer player's level | 1 to 4 |
 | [`SETAISIDE(side)`](#setaiside) | Which side the computer plays | the side |
-| [`AIMOVE()`](#aimove) | The computer makes a move for the side to move (stage 4 of TODO.md; until then it says there is no computer player yet) | the move in SAN |
+| [`AIMOVE()`](#aimove) | The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move | the move in SAN |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
 | [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; it stays square as the window changes | the size, in pixels |
 | [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
@@ -310,7 +310,7 @@ Whether the side to move is in check. Gives 1 or 0.
 SETAIDIFFICULTY(level)
 ```
 
-Sets the computer player's level (its search depth). Gives the level.
+Sets the computer player's level: how many half-moves it looks ahead (then the captures that follow). Gives the level.
 
 | Parameter | Kind | |
 |---|---|---|
@@ -342,7 +342,7 @@ Which side the computer plays. Gives the side.
 AIMOVE()
 ```
 
-The computer makes a move for the side to move (stage 4 of TODO.md; until then it says there is no computer player yet). Gives the move in SAN.
+The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. Gives the move in SAN.
 
 ### FLIPBOARD
 
