@@ -54,6 +54,12 @@ fns.NEWGAME();
 throws("AIMOVE until stage 4", () => fns.AIMOVE(), Error, "no computer player yet (stage 4 of TODO.md)");
 eq("FLIPBOARD", [fns.FLIPBOARD(), fns.FLIPBOARD()], [1, 0]);
 eq("CHESS_VERSION", fns.CHESS_VERSION(), "sae chess");
+fns.NEWGAME();
+for (const t of ["e4", "d5", "exd5", "Qxd5"]) fns.MOVESAN(t);
+eq("GETCAPTURED", fns.GETCAPTURED(), { white: "p", black: "P", balance: 0 });
+eq("GOTOMOVE: back to move 2, then on to 3", [fns.GOTOMOVE(2), fns.GETFEN(), fns.GOTOMOVE("3"), unstem(fns.GETMOVEHISTORYSAN())], [2, "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2", 3, ["e4", "d5", "exd5"]]);
+throws("GOTOMOVE of no move number", () => fns.GOTOMOVE(-1), Error, "-1 is not a move number (0 for the start, 1 for the first move, ...)");
+fns.NEWGAME();
 
 // LISTCOMMANDS and BATCH_EXECUTE.
 const names: string[] = unstem(fns.LISTCOMMANDS()) as string[];
@@ -92,6 +98,9 @@ eq("with stop, the first failure is the call's error, and the rest are not run",
 // expect: ok AIMOVE until stage 4
 // expect: ok FLIPBOARD
 // expect: ok CHESS_VERSION
+// expect: ok GETCAPTURED
+// expect: ok GOTOMOVE: back to move 2, then on to 3
+// expect: ok GOTOMOVE of no move number
 // expect: ok LISTCOMMANDS lists every control function, LISTCOMMANDS and BATCH_EXECUTE
 // expect: ok LISTCOMMANDS(1) describes MOVE
 // expect: ok BATCH_EXECUTE: each in turn, a failure not stopping the rest

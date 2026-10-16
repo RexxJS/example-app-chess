@@ -209,6 +209,69 @@ export class Game {
     this.drawAgreed = true;
   }
 
+  // ---- going to a move (the move list's clicks)
+
+  /** The moves that redo would make, in the order it would make them. */
+  future(): Made[] {
+    return [...this.redoSteps].reverse().flat();
+  }
+
+  /**
+   * Undo or redo whole steps until `ply` moves are made (0: the start); a
+   * step of several moves (one request's) is not split, so it lands on the
+   * last step's end at or before `ply`. The moves made after it.
+   */
+  goto(ply: number): number {
+    while (this.made.length > ply && this.undo());
+    while (this.redoSteps.length && this.made.length + this.redoSteps[this.redoSteps.length - 1].length <= ply) this.redo();
+    return this.made.length;
+  }
+
+  // ---- what the side panel shows
+
+  /** The status in words: whose move, check, or how the game ended and why. */
+  statusText(): string {
+    const winner = (side: Side) => `${side === "white" ? "white" : "black"} wins`;
+    const other: Side = this.turn() === "white" ? "black" : "white";
+    switch (this.status()) {
+      case "resigned": return `${this.resigned} resigned: ${winner(this.resigned === "white" ? "black" : "white")} (${this.result()})`;
+      case "draw_agreed": return "a draw, agreed (1/2-1/2)";
+      case "checkmate": return `checkmate: ${winner(other)} (${this.result()})`;
+      case "stalemate": return `stalemate: ${this.turn()} has no move, a draw (1/2-1/2)`;
+      case "fifty_move_draw": return "a draw by the fifty-move rule: fifty moves each with no capture or pawn move (1/2-1/2)";
+      case "threefold_repetition_draw": return "a draw by threefold repetition: the same position a third time (1/2-1/2)";
+      case "insufficient_material_draw": return "a draw: neither side has the pieces to mate (1/2-1/2)";
+      case "check": return `${this.turn()} to move, in check`;
+      default: return `${this.turn()} to move`;
+    }
+  }
+
+  /**
+   * The pieces taken: what each side's opponent has lost since the start
+   * position (FEN letters, the most valuable first), and the material
+   * balance (pawn 1, knight and bishop 3, rook 5, queen 9; above 0 is
+   * white ahead). A promoted pawn counts as the piece it became.
+   */
+  captured(): { byWhite: string[]; byBlack: string[]; balance: number } {
+    const count = (p: Position) => {
+      const n: Record<string, number> = {};
+      for (let i = 0; i < 64; ++i) {
+        const piece = p.getPieceAtOrNull(i);
+        if (piece === null) continue;
+        const letter = "PNBRQK".charAt(piece);
+        const key = p.getColorAtOrNull(i) === PieceColor.WHITE ? letter : letter.toLowerCase();
+        n[key] = (n[key] ?? 0) + 1;
+      }
+      return n;
+    };
+    const was = count(fromFen(this.startFen)), now = count(this.position);
+    const lost = (letters: string) => letters.split("").flatMap((l) => Array(Math.max(0, (was[l] ?? 0) - (now[l] ?? 0))).fill(l));
+    const value: Record<string, number> = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 0 };
+    let balance = 0;
+    for (const [l, n] of Object.entries(now)) balance += (l === l.toUpperCase() ? 1 : -1) * value[l.toUpperCase()] * n;
+    return { byWhite: lost("qrbnp"), byBlack: lost("QRBNP"), balance };
+  }
+
   // ---- reading
 
   fen(): string {
@@ -309,16 +372,24 @@ export interface State {
   readonly aiLevel: number;
   readonly aiSide: AiSide;
   readonly flipped: boolean;
+  readonly future: readonly string[];     // the moves redo would make, in SAN
+  readonly statusText: string;
+  readonly capturedByWhite: readonly string[];
+  readonly capturedByBlack: readonly string[];
+  readonly balance: number;
 }
 
 export function stateOf(game: Game): State {
   const last = game.made.length ? game.made[game.made.length - 1].move.getCoordinate() : "";
+  const taken = game.captured();
   return {
     fen: game.fen(), turn: game.turn(), status: game.status(), result: game.result(), check: game.position.isKingInCheck(),
     moves: game.moveList(), sans: game.sanList(), lastMove: last, legalMoves: game.legalMoves().length,
     halfmoveClock: game.position.halfmoveClock, fullmoveNumber: game.position.fullmoveNumber,
     canUndo: game.canUndo(), canRedo: game.canRedo(), startFen: game.startFen,
     aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
+    future: game.future().map((m) => m.san), statusText: game.statusText(),
+    capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance,
   };
 }
 

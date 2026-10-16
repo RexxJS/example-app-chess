@@ -1,0 +1,71 @@
+// spec_app_chess_sidebar.ae — beside the board (app/chess/view/sidebar.ts):
+// the move list numbered in SAN with the current move marked, a click on
+// a move going to the position after it (and the moves ahead kept to
+// redo), the status in words, the pieces taken and the material balance.
+//   ./run-tests.sh spec_app_chess_sidebar
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the side panel") {
+        spec.it("a new game: white to move, nothing taken, even") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(b.wait_for_text("white to move"), "the status in words")
+            spec.assert_true(b.wait_for_text("White has taken: nothing"), "nothing taken")
+            spec.assert_true(b.wait_for_text("Material: even"), "even")
+        }
+        spec.it("after moves, the list reads so, numbered, the last marked; captures counted") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVESAN(\"e4\")")
+            _s2, _p2 = command_(key, "MOVESAN(\"d5\")")
+            _s3, _p3 = command_(key, "MOVESAN(\"exd5\")")
+            _s4, _p4 = command_(key, "MOVESAN(\"Nf6\")")
+            _s5, _p5 = command_(key, "MOVESAN(\"Bb5+\")")
+            spec.assert_true(b.button_exists("1. e4") == 1, "1. e4")
+            spec.assert_true(b.button_exists("1... d5") == 1, "1... d5")
+            spec.assert_true(b.button_exists("2. exd5") == 1, "2. exd5")
+            spec.assert_true(b.button_exists("▸ 3. Bb5+") == 1, "the last, marked")
+            spec.assert_true(b.wait_for_text("black to move, in check"), "check, in words")
+            spec.assert_true(b.wait_for_text("White has taken: ♟"), "white took a pawn")
+            spec.assert_true(b.wait_for_text("Material: white +1"), "a pawn up")
+        }
+        spec.it("a click on move 2 shows the position after it; the rest stays ahead") callback {
+            b.click("1... d5")
+            spec.assert_true(c.wait_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2"), "the position after 1... d5")
+            spec.assert_true(c.wait_piece("d5", 0, "♟"), "the board shows it")
+            spec.assert_true(c.wait_piece("e4", 0, "♙"), "e4 not yet taken on d5")
+            spec.assert_true(b.button_exists("▸ 1... d5") == 1, "1... d5 marked")
+            spec.assert_true(b.button_exists("3. Bb5+") == 1, "the moves ahead still listed")
+            spec.assert_true(b.wait_for_text("Material: even"), "even again")
+            b.click("3. Bb5+")
+            spec.assert_true(b.wait_for_text("black to move, in check"), "and forward to the end")
+            spec.assert_true(b.button_exists("▸ 3. Bb5+") == 1, "marked")
+            b.click("Start")
+            spec.assert_true(c.wait_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"), "Start: the start")
+            _u, key = courier_()
+            _s, got = command_(key, "GOTOMOVE(3)")
+            spec.assert_contains(got, "\"result\":3", "GOTOMOVE from REXX")
+            spec.assert_true(b.button_exists("▸ 2. exd5") == 1, "the list follows")
+        }
+        spec.it("a move made from an earlier position forgets what was ahead") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVESAN(\"Qxd5\")")
+            spec.assert_true(b.button_exists("▸ 2... Qxd5") == 1, "the new move")
+            spec.assert_true(b.button_exists("3. Bb5+") == 0, "the old line gone")
+            spec.assert_true(b.wait_for_text("Black has taken: ♙"), "black took back")
+            spec.assert_true(b.wait_for_text("Material: even"), "even")
+        }
+        spec.it("mate said with the winner") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "NEWGAME(); MOVESAN(\"f3\"); MOVESAN(\"e5\"); MOVESAN(\"g4\"); MOVESAN(\"Qh4\")")
+            spec.assert_true(b.wait_for_text("checkmate: black wins (0-1)"), "checkmate: black wins")
+        }
+    }
+    return spec.run_summary(fw)
+}

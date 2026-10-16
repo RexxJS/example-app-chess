@@ -118,6 +118,16 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.goto", label: "Go to a move", params: ["ply"], journaled: true,
+    run: (game, p) => {
+      const ply = Number(p.ply);
+      if (!Number.isInteger(ply) || ply < 0) refuse(`${p.ply} is not a move number (0 for the start, 1 for the first move, ...)`);
+      const at = game.goto(ply);
+      const sans = game.sanList();
+      return { ok: true, message: at ? `at ${Math.ceil(at / 2)}${at % 2 ? "." : "..."} ${sans[at - 1]}` : "at the start", output: at };
+    },
+  },
+  {
     id: "game.setPosition", label: "Set up a position", params: ["fen"], journaled: true,
     run: (game, p) => {
       try {

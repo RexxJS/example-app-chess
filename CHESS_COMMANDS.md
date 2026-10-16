@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-30 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+32 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -45,6 +45,8 @@ the bus and the MCP server give back.
 | [`GETMOVEHISTORY()`](#getmovehistory) | The moves made so far, in coordinate notation | a stem of "e2e4", "e7e5", ... |
 | [`GETMOVEHISTORYSAN()`](#getmovehistorysan) | The moves made so far, in SAN | a stem of "e4", "e5", ... |
 | [`GETGAMEINFO()`](#getgameinfo) | Everything about the game at once | {status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board} |
+| [`GOTOMOVE(ply)`](#gotomove) | Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone | how many moves are made now |
+| [`GETCAPTURED()`](#getcaptured) | The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9) | {white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead} |
 | [`GETTURN()`](#getturn) | Whose move it is | "white" or "black" |
 | [`GETRESULT()`](#getresult) | The result | "1-0", "0-1", "1/2-1/2", or "*" while the game goes on |
 | [`PIECEAT(square)`](#pieceat) | What stands on a square | its FEN letter: K Q R B N P for white, k q r b n p for black, "" for none |
@@ -212,6 +214,26 @@ GETGAMEINFO()
 ```
 
 Everything about the game at once. Gives {status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board}.
+
+### GOTOMOVE
+
+```rexx
+GOTOMOVE(ply)
+```
+
+Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone. Gives how many moves are made now.
+
+| Parameter | Kind | |
+|---|---|---|
+| `ply` | number | how many moves in: 0 for the start, 1 after white's first, 2 after black's, ... |
+
+### GETCAPTURED
+
+```rexx
+GETCAPTURED()
+```
+
+The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9). Gives {white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead}.
 
 ### GETTURN
 

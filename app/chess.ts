@@ -13,11 +13,15 @@
 import { ChessView } from "./chess/view/view.ts";
 import { board } from "./chess/view/board.ts";
 import { promotionBar } from "./chess/view/promotion.ts";
+import { sidebar } from "./chess/view/sidebar.ts";
 
 const v = new ChessView();
 
 ui.text("Chess");
-board(v);
+ui.hstack(() => {
+  board(v);
+  sidebar(v);
+});
 promotionBar(v);
 bind(ui.text(""), v.status);
 bind(ui.text(""), computed(() => {

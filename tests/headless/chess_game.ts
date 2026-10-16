@@ -92,6 +92,35 @@ eq("and redo works on the restored game", h.redo()!.map((m) => m.san), ["Nc6"]);
 eq("pieces by square", [h.pieceAt(getIndexFromAlgebraic("e4")), h.pieceAt(getIndexFromAlgebraic("c6")), h.pieceAt(getIndexFromAlgebraic("e1")), h.pieceAt(getIndexFromAlgebraic("d4"))], ["P", "n", "K", ""]);
 eq("the levels are 1 to 4", LEVELS, [1, 2, 3, 4]);
 
+// Going to a move: undo or redo whole steps, the future kept to redo.
+const k = new Game();
+for (const t of ["e4", "e5", "Nf3", "Nc6", "Bc4"]) k.move(k.find(t)!);
+eq("goto 2: undo to after 1... e5, the rest ahead", [k.goto(2), k.sanList(), k.future().map((m) => m.san)], [2, ["e4", "e5"], ["Nf3", "Nc6", "Bc4"]]);
+eq("goto 4: redo to after 2... Nc6", [k.goto(4), k.sanList(), k.future().map((m) => m.san)], [4, ["e4", "e5", "Nf3", "Nc6"], ["Bc4"]]);
+eq("goto 0 and goto past the end", [k.goto(0), k.fen(), k.goto(99), k.sanList().length], [0, START_FEN, 5, 5]);
+k.goto(1);
+k.beginGroup(); k.move(k.find("d5")!); k.move(k.find("exd5")!); k.endGroup();
+eq("a group is not split: goto 2 lands at its end's step before", [k.goto(2), k.goto(3), k.goto(2)], [1, 3, 1]);
+
+// The status in words, the pieces taken and the balance.
+const w = new Game();
+eq("the status in words", [w.statusText()], ["white to move"]);
+for (const t of ["e4", "d5", "exd5", "Qxd5", "Nc3", "Qa5"]) w.move(w.find(t)!);
+eq("a pawn each taken, level", w.captured(), { byWhite: ["p"], byBlack: ["P"], balance: 0 });
+for (const t of ["Bc4", "Nf6", "Bxf7+"]) w.move(w.find(t)!);
+eq("a pawn up, and in check said", [w.captured(), w.statusText()], [{ byWhite: ["p", "p"], byBlack: ["P"], balance: 1 }, "black to move, in check"]);
+const m = new Game();
+for (const t of ["f3", "e5", "g4", "Qh4"]) m.move(m.find(t)!);
+eq("checkmate said with the winner", m.statusText(), "checkmate: black wins (0-1)");
+m.setPosition("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1");
+eq("stalemate said, and a set position's own pieces the base", [m.statusText(), m.captured()], ["stalemate: black has no move, a draw (1/2-1/2)", { byWhite: [], byBlack: [], balance: 9 }]);
+m.setPosition("8/8/8/4k3/8/8/8/4K3 w - - 0 1");
+eq("insufficient material said", m.statusText(), "a draw: neither side has the pieces to mate (1/2-1/2)");
+m.setPosition("7k/8/8/8/8/8/8/K6R w - - 100 80");
+eq("the fifty-move rule said", m.statusText(), "a draw by the fifty-move rule: fifty moves each with no capture or pawn move (1/2-1/2)");
+m.newGame(); m.move(m.find("e4")!); m.resign();
+eq("a resignation said", m.statusText(), "black resigned: white wins (1-0)");
+
 // expect: ok a new game: the start position, white to move, nothing to undo or redo
 // expect: ok twenty legal moves
 // expect: ok moves found by coordinate or SAN, made with their SAN
@@ -128,3 +157,15 @@ eq("the levels are 1 to 4", LEVELS, [1, 2, 3, 4]);
 // expect: ok and redo works on the restored game
 // expect: ok pieces by square
 // expect: ok the levels are 1 to 4
+// expect: ok goto 2: undo to after 1... e5, the rest ahead
+// expect: ok goto 4: redo to after 2... Nc6
+// expect: ok goto 0 and goto past the end
+// expect: ok a group is not split: goto 2 lands at its end's step before
+// expect: ok the status in words
+// expect: ok a pawn each taken, level
+// expect: ok a pawn up, and in check said
+// expect: ok checkmate said with the winner
+// expect: ok stalemate said, and a set position's own pieces the base
+// expect: ok insufficient material said
+// expect: ok the fifty-move rule said
+// expect: ok a resignation said

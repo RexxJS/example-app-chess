@@ -93,6 +93,11 @@ export const CONTROL: Readonly<Record<string, Control>> = {
       aiLevel: s.aiLevel, aiSide: s.aiSide, flipped: s.flipped ? 1 : 0, board: boardOf(game),
     };
   },
+  GOTOMOVE: (exec, _g, ply) => must(exec, "game.goto", { ply: text(ply) }).output,
+  GETCAPTURED: (exec) => {
+    const s = state(exec);
+    return { white: s.capturedByWhite.join(""), black: s.capturedByBlack.join(""), balance: s.balance };
+  },
   GETTURN: (exec) => state(exec).turn,
   GETRESULT: (exec) => state(exec).result,
   PIECEAT: (_e, game, sq) => game.pieceAt(getIndexFromAlgebraic(square(sq, "PIECEAT"))),
