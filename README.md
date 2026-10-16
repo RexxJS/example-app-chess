@@ -35,13 +35,15 @@ app/
                     commands by their old names), line.ts (a command
                     line), rexxjs.js (RexxJS, generated), ai.ts (the
                     computer player: alpha-beta, ported from src/ai.js),
-                    think.ts (its search in slices, a timer apart)
+                    think.ts (its search in slices, a timer apart),
+                    analysis.ts (a position's value and line, a hint)
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
                     click or drag to move), promotion.ts, sidebar.ts
                     (the status, what is taken, the move list),
                     toolbar.ts (the buttons and the menu bar, Open and
-                    Save), scriptpanel.ts (a REXX script run in the page,
+                    Save), analysis.ts (Analyse, Hint),
+                    scriptpanel.ts (a REXX script run in the page,
                     and the recorder), keyboard.ts (a move typed), looks.ts
                     (the light and dark themes)
 tests/

@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-37 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+39 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -58,6 +58,8 @@ the bus and the MCP server give back.
 | [`GETAIDIFFICULTY()`](#getaidifficulty) | The computer player's level | 1 to 4 |
 | [`SETAISIDE(side)`](#setaiside) | Which side the computer plays | the side |
 | [`AIMOVE()`](#aimove) | The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work | the move in SAN |
+| [`ANALYZE([depth])`](#analyze) | What the computer makes of the position: its value, the best move and the line it expects (the game is not changed) | {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes} |
+| [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
 | [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; it stays square as the window changes | the size, in pixels |
 | [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
@@ -343,6 +345,26 @@ AIMOVE()
 ```
 
 The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work. Gives the move in SAN.
+
+### ANALYZE
+
+```rexx
+ANALYZE([depth])
+```
+
+What the computer makes of the position: its value, the best move and the line it expects (the game is not changed). Gives {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes}.
+
+| Parameter | Kind | |
+|---|---|---|
+| `depth` | level, optional | how many half-moves to look: 1 to 4; the computer's level if left out |
+
+### HINT
+
+```rexx
+HINT()
+```
+
+The move the computer would play for the side to move, at its level (the game is not changed). Gives the move in SAN.
 
 ### FLIPBOARD
 

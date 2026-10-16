@@ -9,10 +9,11 @@
 // functions see the game only through `exec`, a command and its
 // parameters in and its outcome out, as a button does.
 import { RANK_CHARACTERS, getIndex, getIndexFromAlgebraic, getPieceCharacter } from "./chess.ts";
-import { legalMovesOf } from "./game.ts";
+import { LEVELS, legalMovesOf } from "./game.ts";
 import type { Game, State } from "./game.ts";
 import { DESCRIBED, signature } from "./described.ts";
-import { canSlice, thinkOnce } from "./think.ts";
+import { analyzeOnce, canSlice, thinkOnce } from "./think.ts";
+import type { Analysis } from "./analysis.ts";
 
 export interface Done {
   readonly ok: boolean;
@@ -65,6 +66,9 @@ export function boardOf(game: Game): string {
   return lines.join("\n");
 }
 
+// An analysis as REXX has it: the variation a stem.
+const analysisStem = (a: Analysis) => ({ value: a.value, mate: a.mate, text: a.text, best: a.best, coordinate: a.coordinate, pv: stem(a.pv), depth: a.depth, nodes: a.nodes });
+
 const status = (s: State) => ({ status: s.status, toPlay: s.turn, isCheck: s.check ? 1 : 0, legalMoves: s.legalMoves, result: s.result });
 
 export const CONTROL: Readonly<Record<string, Control>> = {
@@ -116,6 +120,18 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   AIMOVE: (exec, game) => {
     if (!canSlice() || game.isOver()) return must(exec, "ai.move").output;
     return thinkOnce(game).then((move) => must(exec, "ai.move", move === null ? {} : { move }).output);
+  },
+  // A position's analysis as a stem: in a page, in slices (think.ts), as AIMOVE.
+  ANALYZE: (exec, game, depth) => {
+    const d = depth === undefined || text(depth) === "" ? {} : { depth: text(depth) };
+    if (!canSlice() || game.isOver()) return analysisStem(must(exec, "ai.analyze", d).output as Analysis);
+    const n = d.depth === undefined ? game.aiLevel : Number(d.depth);
+    if (!LEVELS.includes(n)) throw new Error(`${d.depth} is not a depth (1 to 4)`);
+    return analyzeOnce(game, n).then(analysisStem);
+  },
+  HINT: (exec, game) => {
+    if (!canSlice() || game.isOver()) return must(exec, "ai.hint").output;
+    return analyzeOnce(game, game.aiLevel).then((a) => a.best);
   },
   FLIPBOARD: (exec) => must(exec, "board.flip").output,
   BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : { px: text(px) }).output,

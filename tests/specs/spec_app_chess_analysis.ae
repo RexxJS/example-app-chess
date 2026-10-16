@@ -1,0 +1,52 @@
+// spec_app_chess_analysis.ae — the analysis line (app/chess/view/
+// analysis.ts, TODO.md 4.5): Analyse shows the computer's value of the
+// position and the line it expects, Hint the move it would play with its
+// square picked on the board; the line goes when the game moves on; and
+// ANALYZE() over the control bus gives the analysis as a stem, at level 4
+// on Kiwipete, in slices, inside the page's limit.
+//   ./run-tests.sh spec_app_chess_analysis
+import std.spec
+import std.string
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+const SCHOLAR = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"
+const KIWIPETE = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the analysis line") {
+        spec.it("Analyse: the value and the line, a mate in one") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, set = command_(key, "SETPOSITION(\"${SCHOLAR}\")")
+            spec.assert_contains(set, "\"success\":true", "set up")
+            spec.assert_true(c.wait_fen(SCHOLAR), "on the page")
+            b.click("Analyse")
+            spec.assert_true(c.wait_text_starting("Evaluation: #1 at depth 1: 4. Qxf7#", 10), "white mates in one, and how (a mate ends the deepening at once)")
+        }
+        spec.it("Hint: the move, its square picked; a move clears the line") callback {
+            b.click("Hint")
+            spec.assert_true(c.wait_text_starting("Hint: Qxf7#", 10), "the hint")
+            spec.assert_true(c.wait_square_rgb("h5", 0, c.SELECTED), "the queen's square picked")
+            c.click_square("f7", 0)
+            spec.assert_true(c.wait_moves("Qxf7#"), "the hinted move made")
+            spec.assert_true(b.wait_for_text_gone("Hint: Qxf7#"), "and the line gone with the position")
+        }
+        spec.it("ANALYZE() over the bus at level 4 on Kiwipete: a stem, in slices") callback {
+            _u, key = courier_()
+            _s1, set = command_(key, "SETPOSITION(\"${KIWIPETE}\")")
+            spec.assert_contains(set, "\"success\":true", "Kiwipete")
+            st, got = command_(key, "ANALYZE(4)")
+            spec.assert_str_eq(st, "HTTP/1.1 200 OK", "answered")
+            spec.assert_contains(got, "\"success\":true", "not stopped at the page's limit")
+            spec.assert_contains(got, "\"depth\":4", "four deep")
+            spec.assert_contains(got, "\"pv\":{\"0\":", "the line, a stem")
+            spec.assert_true(c.wait_fen(KIWIPETE), "the game not changed")
+        }
+    }
+    return spec.run_summary(fw)
+}

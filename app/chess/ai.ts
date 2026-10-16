@@ -513,6 +513,37 @@ export class Thinking {
     this.done = true;
   }
 
+  /**
+   * The principal variation: the best move, then the moves the table holds
+   * as best in each position after it, as far as the depth reached (and no
+   * further than a move the table has none for, or the end of the game).
+   * The position is left as it was.
+   */
+  pv(): Move[] {
+    const line: Move[] = [];
+    if (!this.best) return line;
+    const p = this.position;
+    const base = p.getMadeMoveCount();
+    p.makeMove(this.best);
+    line.push(this.best);
+    while (line.length < Math.max(1, this.reached)) {
+      const entry = this.ai.table.get(keyOf(p));
+      const next = entry && entry.move ? p.getMoves().find((m) => m.value === entry.move) : undefined;
+      if (!next || p.isDraw()) break;
+      p.makeMove(next);
+      line.push(next);
+    }
+    while (p.getMadeMoveCount() > base) p.unmakeMove();
+    return line;
+  }
+
+  /** Moves to a mate the search found: above 0 when white mates, below when black does, 0 for none. */
+  mateIn(): number {
+    if (!isMateValue(this.bestValue)) return 0;
+    const moves = Math.ceil((MATE_VALUE - Math.abs(this.bestValue)) / 2);
+    return this.bestValue > 0 ? moves : -moves;
+  }
+
   #rootMove(): void {
     const move = this.#moves[this.#i++];
     this.position.makeMove(move);

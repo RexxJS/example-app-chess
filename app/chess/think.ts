@@ -14,6 +14,8 @@
 // it is dropped, not played.
 import { Thinking, depthOf } from "./ai.ts";
 import type { Game } from "./game.ts";
+import { analysisOf } from "./analysis.ts";
+import type { Analysis } from "./analysis.ts";
 
 export const SLICE_MS = 40;
 export const HARD_MS = 600;
@@ -32,13 +34,13 @@ export interface Thought {
 export const canSlice = (): boolean => typeof setTimeout === "function";
 
 /**
- * Starts thinking for the side to move at the game's level. `onSlice`
+ * Starts thinking for the side to move at the game's level (or `depth`). `onSlice`
  * hears each slice's end; `onDone` the search's, with the move to make
  * (coordinate notation) or null, and whether the game is still as it was.
  */
-export function think(game: Game, onDone: (move: string | null, fresh: boolean, t: Thinking) => void, onSlice: (t: Thinking) => void = () => {}): Thought {
+export function think(game: Game, onDone: (move: string | null, fresh: boolean, t: Thinking) => void, onSlice: (t: Thinking) => void = () => {}, depth?: number): Thought {
   const level = game.aiLevel;
-  const thinking = new Thinking(game.positionCopy(), depthOf(level));
+  const thinking = new Thinking(game.positionCopy(), depth ?? depthOf(level));
   const key = game.key();
   let live = true;
   const slice = () => {
@@ -60,5 +62,12 @@ export function think(game: Game, onDone: (move: string | null, fresh: boolean, 
 export function thinkOnce(game: Game): Promise<string | null> {
   return new Promise((resolve, reject) => {
     think(game, (move, fresh) => (fresh ? resolve(move) : reject(new Error("the game changed while the computer thought"))));
+  });
+}
+
+/** The position analysed `depth` half-moves deep, in slices; refused when the game changed meanwhile. */
+export function analyzeOnce(game: Game, depth: number): Promise<Analysis> {
+  return new Promise((resolve, reject) => {
+    think(game, (_move, fresh, t) => (fresh ? resolve(analysisOf(game, t)) : reject(new Error("the game changed while the computer thought"))), () => {}, depth);
   });
 }

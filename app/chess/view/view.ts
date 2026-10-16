@@ -9,6 +9,7 @@ import type { Outcome, Params } from "../commands.ts";
 import { stateOf } from "../game.ts";
 import type { State } from "../game.ts";
 import { think } from "../think.ts";
+import { analysisOf, lineText } from "../analysis.ts";
 import type { Thought } from "../think.ts";
 
 /** What the board shows: a piece's FEN letter (or "") per square index 0-63, and the marks. */
@@ -32,6 +33,11 @@ export class ChessView {
   readonly promoting = state<{ from: number; to: number } | null>(null);
   /** What the computer is doing: "" when it is not thinking, else how far it has got. */
   readonly thinking = state("");
+  /** The analysis line: the computer's value of the position and the line it expects, or a hint; "" for none. */
+  readonly analysis = state("");
+  #analysing: Thought | null = null;
+  /** The game's key the analysis line is of ("" for none). */
+  #analysedKey = "";
   #selected = -1;
   /** The computer's search in progress (think.ts), or null. */
   #thought: Thought | null = null;
@@ -109,6 +115,35 @@ export class ChessView {
     this.status.set("stopped: the computer waits (Computer move to have it move)");
   }
 
+  // ---- analysis (analysis.ts), in slices as the computer's thinking is
+
+  /** The position analysed at the computer's level: its value and the line it expects, on the analysis line; `hint`: only the move, its square picked. */
+  analyse(hint = false): void {
+    const g = this.cmds.game;
+    if (g.isOver()) {
+      this.analysis.set(`the game is over (${g.status()}, ${g.result()})`);
+      return;
+    }
+    this.#analysing?.cancel();
+    const level = g.aiLevel;
+    const a = think(g, (_move, fresh, t) => {
+      if (this.#analysing !== a) return;
+      this.#analysing = null;
+      if (!fresh) return;
+      const r = analysisOf(g, t);
+      if (hint) {
+        this.analysis.set(r.best ? `Hint: ${r.best}` : "Hint: no move");
+        if (r.coordinate && !this.#thought) this.select(getIndexFromAlgebraic(r.coordinate.slice(0, 2)));
+      } else this.analysis.set(`Evaluation: ${r.text} at depth ${r.depth}: ${lineText(g, r.pv)}`);
+    }, (t) => {
+      const p = t.progress();
+      this.analysis.set(`${hint ? "Finding a hint" : "Analysing"}: depth ${p.depth} of ${t.depth}, move ${p.move} of ${p.of}`);
+    }, level);
+    this.#analysing = a;
+    this.#analysedKey = a.key;
+    this.analysis.set(hint ? "Finding a hint" : "Analysing");
+  }
+
   /** Undo, against the computer: back to the person's move (two moves, the computer's and theirs), when the computer plays one side. */
   undo(): void {
     const o = this.run("game.undo");
@@ -128,6 +163,13 @@ export class ChessView {
       this.thinking.set("");
     }
     if (!this.#thought && this.computerToMove() && !g.canRedo() && g.key() !== this.#pausedKey) this.think(true);
+    // An analysis (or its line) of a position the game has left: dropped, and the line cleared.
+    if (this.#analysedKey && this.#analysedKey !== g.key()) {
+      this.#analysing?.cancel();
+      this.#analysing = null;
+      this.#analysedKey = "";
+      this.analysis.set("");
+    }
   }
 
   /** The square picked to move from (-1 for none): its legal targets are shown. */

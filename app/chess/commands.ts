@@ -13,6 +13,7 @@
 // (Game.saved/restore), so nothing it did is kept.
 import { getIndexFromAlgebraic } from "./chess.ts";
 import { AI, depthOf } from "./ai.ts";
+import { analyze, lineText } from "./analysis.ts";
 import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
 import { lineOf, parseLine } from "./line.ts";
@@ -51,6 +52,10 @@ const promotionOf = (s: string): string => PROMOTIONS[s.trim().toLowerCase()] ??
 const levelOf = (s: string): number => {
   const n = Number(s);
   return LEVELS.includes(n) ? n : refuse(`${s} is not a level (1 to 4)`);
+};
+const analysisDepthOf = (s: string): number => {
+  const n = Number(s);
+  return LEVELS.includes(n) ? n : refuse(`${s} is not a depth (1 to 4)`);
 };
 const SIDES: readonly AiSide[] = ["white", "black", "both", "none"];
 const aiSideOf = (s: string): AiSide => {
@@ -186,6 +191,24 @@ export const SPECS: readonly Spec[] = [
       const who = game.turn();
       const m = game.move(move);
       return { ok: true, message: `the computer (${who}, level ${game.aiLevel}) played ${m.san}${game.isOver() ? ` (${game.status()}, ${game.result()})` : ""}`, output: m.san };
+    },
+  },
+  {
+    id: "ai.analyze", label: "Analyse the position", params: [], optional: ["depth"], journaled: false,
+    // What the computer makes of the position (analysis.ts): its value, the
+    // best move, the principal variation. Not a change to the game.
+    run: (game, p) => {
+      if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
+      const a = analyze(game, p.depth !== undefined ? analysisDepthOf(p.depth) : game.aiLevel);
+      return { ok: true, message: `${a.text} at depth ${a.depth}: ${lineText(game, a.pv)}`, output: a };
+    },
+  },
+  {
+    id: "ai.hint", label: "A hint", params: [], journaled: false,
+    run: (game) => {
+      if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
+      const a = analyze(game, game.aiLevel);
+      return { ok: true, message: `hint: ${a.best} (${a.text})`, output: a.best };
     },
   },
   {

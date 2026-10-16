@@ -74,6 +74,9 @@ export function menuBar(v: ChessView): void {
     ui.menu_separator();
     ui.menu_item("Computer move", () => v.think());
     ui.menu_item("Stop thinking", () => v.stopThinking());
+    ui.menu_separator();
+    ui.menu_item("Analyse", () => v.analyse());
+    ui.menu_item("Hint", () => v.analyse(true));
   });
 }
 

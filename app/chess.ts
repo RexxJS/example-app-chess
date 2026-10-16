@@ -18,6 +18,7 @@ import { menuBar, toolbar } from "./chess/view/toolbar.ts";
 import { scriptPanel } from "./chess/view/scriptpanel.ts";
 import { moveField } from "./chess/view/keyboard.ts";
 import { looks } from "./chess/view/looks.ts";
+import { analysisPanel } from "./chess/view/analysis.ts";
 
 const v = new ChessView();
 
@@ -33,6 +34,7 @@ ui.vstack(() => {
     sidebar(v);
   });
   promotionBar(v);
+  analysisPanel(v);
   moveField(v);
   bind(ui.text(""), v.status);
   bind(ui.text(""), computed(() => {
