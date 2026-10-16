@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-57 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+58 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -46,6 +46,7 @@ the bus and the MCP server give back.
 | [`GETSTATUS()`](#getstatus) | Where the game is | {status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned, draw_agreed or time_forfeit |
 | [`GETMOVEHISTORY()`](#getmovehistory) | The moves made so far, in coordinate notation | a stem of "e2e4", "e7e5", ... |
 | [`GETMOVEHISTORYSAN()`](#getmovehistorysan) | The moves made so far, in SAN | a stem of "e4", "e5", ... |
+| [`LASTMOVE()`](#lastmove) | The last move made, for a program relaying it to another app (rexx/match.rexx: two apps playing each other) | {san, coordinate, ply: how many moves are made, by: "white" or "black"}; san "" and ply 0 before any |
 | [`GETGAMEINFO()`](#getgameinfo) | Everything about the game at once | {status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board} |
 | [`GOTOMOVE(ply)`](#gotomove) | Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone | how many moves are made now |
 | [`GETCAPTURED()`](#getcaptured) | The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9) | {white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead} |
@@ -251,6 +252,14 @@ GETMOVEHISTORYSAN()
 ```
 
 The moves made so far, in SAN. Gives a stem of "e4", "e5", ....
+
+### LASTMOVE
+
+```rexx
+LASTMOVE()
+```
+
+The last move made, for a program relaying it to another app (rexx/match.rexx: two apps playing each other). Gives {san, coordinate, ply: how many moves are made, by: "white" or "black"}; san "" and ply 0 before any.
 
 ### GETGAMEINFO
 

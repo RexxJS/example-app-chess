@@ -67,6 +67,7 @@ spec_app_chess_puzzle|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-puzz
 spec_app_chess_960|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-960-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_960
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
+spec_app_chess_match|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-match-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|match spec_app_chess_match
 mcp||mcp
 spec_app_chess_mcp|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-mcp-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_mcp
 "
@@ -83,7 +84,7 @@ for line in $TABLE; do
 '; continue ;; esac
     log="$LOGS/$label.log"
     # The REXX scripts run on node and the RexxJS beside this checkout.
-    if [ "$label" = spec_app_chess_rexx ] && ! { [ -x "$ROOT/RexxJS/core/rexx" ] && command -v node >/dev/null 2>&1; }; then
+    if { [ "$label" = spec_app_chess_rexx ] || [ "$label" = spec_app_chess_match ]; } && ! { [ -x "$ROOT/RexxJS/core/rexx" ] && command -v node >/dev/null 2>&1; }; then
         echo "FAIL $label (needs node, and RexxJS checked out beside this repo: ./RexxJS -> ../RexxJS)"
         fail=$((fail + 1)); failed="$failed $label"; IFS='
 '; continue
@@ -105,6 +106,9 @@ for line in $TABLE; do
         headless) set -- env SAE_LOWER_OUT="$T/lower-tests" "$SAE/lower/run-tests.sh" --mod "$ROOT/tests/headless" ;;
         spec) set -- env SAE_TEST_LIB_DIR="$ROOT/tests/lib" \
                   "$SAE/tests/run_spec.sh" "$ROOT/tests/specs/$2.ae" "$ROOT/app" ;;
+        # A spec with a second app beside the driver's (tests/specs/second_app.sh).
+        match) set -- env SAE_DIR="$SAE" "$ROOT/tests/specs/second_app.sh" "$T/chess-match-black" \
+                  env SAE_TEST_LIB_DIR="$ROOT/tests/lib" "$SAE/tests/run_spec.sh" "$ROOT/tests/specs/$2.ae" "$ROOT/app" ;;
     esac
     # shellcheck disable=SC2086 -- envs is a list of NAME=value words
     # Each entry's app storage its own and fresh (the game in progress is

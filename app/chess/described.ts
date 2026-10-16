@@ -59,6 +59,7 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
   GETSTATUS: fn([], "Where the game is", "{status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned, draw_agreed or time_forfeit"),
   GETMOVEHISTORY: fn([], "The moves made so far, in coordinate notation", "a stem of \"e2e4\", \"e7e5\", ..."),
   GETMOVEHISTORYSAN: fn([], "The moves made so far, in SAN", "a stem of \"e4\", \"e5\", ..."),
+  LASTMOVE: fn([], "The last move made, for a program relaying it to another app (rexx/match.rexx: two apps playing each other)", "{san, coordinate, ply: how many moves are made, by: \"white\" or \"black\"}; san \"\" and ply 0 before any"),
   GETGAMEINFO: fn([], "Everything about the game at once", "{status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board}"),
   GOTOMOVE: fn([p("ply", "number", "how many moves in: 0 for the start, 1 after white's first, 2 after black's, ...")],
     "Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone", "how many moves are made now"),

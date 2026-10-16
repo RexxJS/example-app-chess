@@ -96,6 +96,11 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   GETSTATUS: (exec) => status(state(exec)),
   GETMOVEHISTORY: (exec) => stem(state(exec).moves),
   GETMOVEHISTORYSAN: (exec) => stem(state(exec).sans),
+  LASTMOVE: (exec) => {
+    const s = state(exec);
+    const ply = s.sans.length;
+    return { san: ply ? s.sans[ply - 1] : "", coordinate: s.lastMove, ply, by: ply ? ((ply % 2 === 1) === (s.startFen.split(" ")[1] !== "b") ? "white" : "black") : "" };
+  },
   GETGAMEINFO: (exec, game) => {
     const s = state(exec);
     return {

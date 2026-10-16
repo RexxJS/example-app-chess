@@ -13,7 +13,9 @@ to=e4`, `get-board`) or the control functions (`MOVE("e2", "e4")`,
 | `show-board.rexx` | The old demo's "Display Board" |
 | `game-status.rexx` | The old demo's "Get Game Status" |
 | `play-a-game.rexx` | The control functions: the Scholar's mate, an illegal move refused, the result, one UNDO, LISTCOMMANDS |
+| `match.rexx` | Two apps play each other (TODO.md 6.1): white's app and black's, each its own computer player, every move one makes sent to the other; the script is the tournament |
 | `chess-address.js` | The ADDRESS library: `ADDRESS CHESS` for the sae app |
+| `chess-match.js` | `ADDRESS MATCH`: several apps from one program, each command led by the app's name (`'white AIMOVE()'`), found by `CHESS_<NAME>_DIR` |
 
 ## Running them
 
@@ -32,6 +34,18 @@ RexxJS/core/rexx rexx/opening-moves.rexx
 
 `./run-tests.sh spec_app_chess_rexx` runs them all against the app and
 checks what they say and what the page then shows.
+
+A match needs two apps, each with its own data folder (where its courier
+file goes):
+
+```bash
+SAE_APPDATA_DIR=/tmp/white ../sae/target/build/bin/sae --app app --control-bus &
+SAE_APPDATA_DIR=/tmp/black ../sae/target/build/bin/sae --app app --control-bus &
+CHESS_WHITE_DIR=/tmp/white CHESS_BLACK_DIR=/tmp/black RexxJS/core/rexx rexx/match.rexx -- 20 2 1
+```
+
+(twenty moves, white at level 2, black at level 1);
+`./run-tests.sh spec_app_chess_match` plays one, white the driver's app.
 
 ## How a command reaches the app
 

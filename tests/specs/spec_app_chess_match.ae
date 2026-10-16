@@ -1,0 +1,52 @@
+// spec_app_chess_match.ae — two chess apps play each other over their
+// control buses (TODO.md 6.1): rexx/match.rexx, run by RexxJS's CLI, the
+// script the tournament. The app sae-driver runs is white (its board read
+// by the driver); a second app, started by tests/specs/second_app.sh, is
+// black. Each plays its side with its own computer player, white from its
+// opening book, and each move one makes is sent to the other: twenty
+// moves, and both boards the same at the end.
+//   ./run-tests.sh spec_app_chess_match
+// Needs node, the RexxJS checkout beside this repository and sae-bus.
+import std.spec
+import std.string
+import std.list
+import std.os
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "a match between two apps") {
+        spec.it("match.rexx: twenty moves, white's app against black's, both boards alike") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "white listening")
+            root = os_getenv("CHESS_ROOT")
+            argv = list.new()
+            list.add(argv, "-c")
+            list.add(argv, "cd \"$0\" && CHESS_WHITE_DIR=\"$1\" RexxJS/core/rexx rexx/match.rexx -- 20 2 1 2>&1")
+            list.add(argv, root)
+            list.add(argv, os_getenv("SAE_APPDATA_DIR"))
+            out, status, _err = os.run_capture("sh", argv, null)
+            print(out)
+            spec.assert_eq(status, 0, "the script exits 0")
+            spec.assert_contains(out, "A match of 20 moves: white at level 2 (from its book), black at level 1", "who plays")
+            spec.assert_contains(out, "1. ", "the moves said")
+            spec.assert_contains(out, "✓ match played", "played to its end")
+            spec.assert_eq(string.contains(out, "ERROR"), 0, "nothing refused")
+            // White's board, read by the driver, is the one the script says both have.
+            _u, key = courier_()
+            _s, fen = command_(key, "GETFEN()")
+            at = string.index_of(fen, "\"result\":\"")
+            spec.assert_true(at >= 0, "white's FEN over the bus")
+            f = string.substring(fen, at + 10, string.index_of(fen, "\",\"errorCode\""))
+            spec.assert_contains(out, "Both boards: ${f}", "the script's last position is white's")
+            spec.assert_true(c.wait_fen(f), "and the page shows it")
+            _s2, sans = command_(key, "GETMOVEHISTORYSAN()")
+            spec.assert_true(string.contains(sans, "\"0\":40") == 1 || string.contains(out, "result 1-0") == 1 || string.contains(out, "result 0-1") == 1 || string.contains(out, "result 1/2-1/2") == 1, "forty half-moves, or a game ended sooner")
+        }
+    }
+    return spec.run_summary(fw)
+}

@@ -33,6 +33,7 @@ const legal = unstem(fns.LISTLEGALMOVES());
 eq("LISTLEGALMOVES: each described", legal.find((m: any) => m.coordinate === "d7d5"), { from: "d7", to: "d5", piece: "P", capture: 0, promotion: "", san: "d5", coordinate: "d7d5" });
 eq("GETSTATUS", fns.GETSTATUS(), { status: "in_progress", toPlay: "black", isCheck: 0, legalMoves: 22, result: "*" });
 eq("GETMOVEHISTORY, and in SAN", [unstem(fns.GETMOVEHISTORY()), unstem(fns.GETMOVEHISTORYSAN())], [["e2e4", "c7c5", "g1f3"], ["e4", "c5", "Nf3"]]);
+eq("LASTMOVE: the last move, how many, by whom", fns.LASTMOVE(), { san: "Nf3", coordinate: "g1f3", ply: 3, by: "white" });
 const info: any = fns.GETGAMEINFO();
 eq("GETGAMEINFO", [info.status, info.toPlay, info.isCheck, info.legalMoveCount, info.halfMoveClock, info.fullMoveNumber, info.result, info.lastMove, unstem(info.moves), info.canUndo, info.canRedo, info.aiLevel, info.aiSide, info.flipped, info.board === boardOf(cmds.game)],
   ["in_progress", "black", 0, 22, 1, 2, "*", "g1f3", ["e4", "c5", "Nf3"], 1, 0, 2, "none", 0, true]);
@@ -82,6 +83,7 @@ eq("with stop, the first failure is the call's error, and the rest are not run",
 // expect: ok LISTLEGALMOVES: each described
 // expect: ok GETSTATUS
 // expect: ok GETMOVEHISTORY, and in SAN
+// expect: ok LASTMOVE: the last move, how many, by whom
 // expect: ok GETGAMEINFO
 // expect: ok GETTURN, GETRESULT, PIECEAT, ISCHECK
 // expect: ok PIECEAT of no square
