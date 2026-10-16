@@ -51,7 +51,7 @@ eq("RESIGN with a side; OFFERDRAW", [fns.RESIGN("white"), fns.UNDO(), fns.OFFERD
 eq("the computer player's settings", [fns.SETAIDIFFICULTY(3), fns.GETAIDIFFICULTY(), fns.SETAISIDE("black")], [3, 3, "black"]);
 throws("a level that is none", () => fns.SETAIDIFFICULTY(7), Error, "7 is not a level (1 to 4)");
 fns.NEWGAME();
-eq("AIMOVE: the computer's move, in SAN; UNDO takes it back", [fns.AIMOVE(), fns.UNDO(), fns.GETMOVEHISTORY()[0]], ["Nf3", 1, 0]);
+eq("AIMOVE: the computer's move, in SAN; UNDO takes it back", [fns.AIMOVE(), fns.UNDO(), fns.GETMOVEHISTORY()[0]], ["Nc3", 1, 0]);
 eq("FLIPBOARD", [fns.FLIPBOARD(), fns.FLIPBOARD()], [1, 0]);
 eq("CHESS_VERSION", fns.CHESS_VERSION(), "sae chess");
 fns.NEWGAME();
