@@ -1033,6 +1033,16 @@ class RexxInterpreter {
     return variableStackUtils.getVariable(name, this.variables, this.variableResolver);
   }
 
+  // A compound symbol's derived name (TRL 3.4): list.i is list.2 when i = 2
+  derivedName(name) {
+    return variableStackUtils.derivedName(name, (n) => this.variables.has(n), (n) => this.variables.get(n));
+  }
+
+  // A symbol no variable is set for is its own name in uppercase (TRL 3.1)
+  unsetSymbolValue(name) {
+    return variableStackUtils.unsetSymbolValue(name, (n) => this.variables.has(n), (n) => this.variables.get(n));
+  }
+
   isExternalScriptCall(subroutineName) {
     return parseSubroutineUtils.isExternalScriptCall(subroutineName);
   }
@@ -1471,7 +1481,7 @@ class RexxInterpreter {
               result = await this.evaluateExpression(command.expression);
             }
             
-            const variableName = await this.interpolateString(command.variable);
+            const variableName = this.derivedName(await this.interpolateString(command.variable));
 
             // Handle compound variable assignment (e.g., RESULT.message = value)
             if (variableName.includes('.')) {
@@ -1565,7 +1575,7 @@ class RexxInterpreter {
               }
             }
             
-            const variableName = await this.interpolateString(command.variable);
+            const variableName = this.derivedName(await this.interpolateString(command.variable));
 
             // Handle compound variable assignment (e.g., RESULT.message = value)
             if (variableName.includes('.')) {
@@ -1984,8 +1994,12 @@ class RexxInterpreter {
   async executeSayStatement(sayCommand) {
     const expression = sayCommand.expression;
     
-    // Check if the expression contains concatenation operators (||)
-    if (expression.includes('||')) {
+    // Check if the expression contains concatenation operators (||), or a
+    // term abutting a literal (v"text"), which evaluateConcatenation joins
+    const concatenationTerms = (typeof require !== 'undefined' && typeof module !== 'undefined')
+      ? require('./parser').concatenationTerms
+      : window.concatenationTerms;
+    if (expression.includes('||') || (concatenationTerms(expression) || []).some((t) => t.abut)) {
       // Handle as a concatenation expression
       const result = await this.evaluateConcatenation(expression);
       this.outputHandler.output(String(result));
@@ -2026,9 +2040,10 @@ class RexxInterpreter {
         // Single quoted string (no interpolation)
         outputParts.push(unquoteLiteral(part));
       } else {
-        // Variable reference or literal
+        // Variable reference or literal; a symbol no variable is set for
+        // is its uppercase name (TRL 3.1)
         const resolved = await this.resolveValue(part);
-        outputParts.push(String(resolved));
+        outputParts.push(String(resolved === part ? this.unsetSymbolValue(part) : resolved));
       }
     }
     
@@ -2087,8 +2102,16 @@ class RexxInterpreter {
       condition,
       this.resolveValue.bind(this),
       compareValues,
-      isTruthy
+      isTruthy,
+      (name) => this.unsetSymbolValue(name)
     );
+  }
+
+  // A name that is a function here: built in, an operation, or REQUIREd
+  isKnownFunctionName(name) {
+    const upper = name.toUpperCase();
+    return !!(this.builtInFunctions[upper] || this.operations[upper] ||
+      (this.externalFunctions && (this.externalFunctions[name] || this.externalFunctions[upper])));
   }
 
   isLikelyFunctionName(name) {
@@ -2139,7 +2162,20 @@ class RexxInterpreter {
   async evaluateConcatenation(expression) {
     // Use the extracted evaluateConcatenation function, passing resolveValue, evaluateExpression, and parseExpression
     // This allows proper evaluation of expressions like (a + b) in concatenation contexts
-    const { parseExpression } = require('./parser');
+    const { parseExpression, parseFunctionCall, concatenationTerms } = require('./parser');
+
+    // RexxJS's call without parentheses (LET x = UPPER str1, LET d = DATE
+    // 'S'): the first of blank-separated terms is a function's name, and no
+    // variable's, so the rest are its arguments, not a concatenation.
+    const terms = concatenationTerms(expression);
+    if (terms && terms.length > 1 && !terms[1].abut && !expression.includes('||') &&
+        /^[A-Za-z_]\w*$/.test(terms[0].text) && !this.variables.has(terms[0].text) &&
+        this.isKnownFunctionName(terms[0].text)) {
+      const call = parseFunctionCall(expression);
+      if (call) {
+        return await this.executeFunctionCall(call);
+      }
+    }
     return await evaluateConcatenation(
       expression,
       (variableName) => this.resolveValue(variableName),
@@ -2152,7 +2188,8 @@ class RexxInterpreter {
           // If parsing fails, try resolving as a variable
           return await this.resolveValue(exprStr);
         }
-      }
+      },
+      (name) => this.unsetSymbolValue(name)
     );
   }
   

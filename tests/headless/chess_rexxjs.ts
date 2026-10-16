@@ -25,6 +25,11 @@ eq("a loop", await run("s = 0\nDO i = 1 TO 3\n  s = s + i\nEND\nSAY s"), ["6"]);
 // c = a || b with no LET, both of which a chess script wants.
 eq("DO FOREVER and LEAVE", await run("n = 0\nDO FOREVER\n  n = n + 1\n  IF n = 4 THEN LEAVE\nEND\nSAY n"), ["4"]);
 eq("a || b assigned without LET", await run('a = "e2"\nb = "e4"\nc = a || b\nSAY c'), ["e2e4"]);
+// RexxJS 60d6ab0 (re-vendored 2026-10-16): a DO loop's variable ends at
+// n + 1, and DO v OVER stem. walks a stem's values, its count (m.0) among
+// them, as RexxJS has it: a script over GETMOVES() loops DO i = 1 TO m.0.
+eq("a DO loop's variable after it", await run("DO i = 1 TO 3\nEND\nSAY i"), ["4"]);
+eq("DO OVER a stem", await run('m.0 = 2\nm.1 = "e4"\nm.2 = "d4"\nDO v OVER m.\n  SAY v\nEND'), ["2", "e4", "d4"]);
 
 // expect: ok 1+1 gives 2 on the vendored interpreter
 // expect: ok SAY says its words, as RexxJS has it
@@ -32,3 +37,5 @@ eq("a || b assigned without LET", await run('a = "e2"\nb = "e4"\nc = a || b\nSAY
 // expect: ok a loop
 // expect: ok DO FOREVER and LEAVE
 // expect: ok a || b assigned without LET
+// expect: ok a DO loop's variable after it
+// expect: ok DO OVER a stem
