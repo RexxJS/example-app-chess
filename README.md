@@ -12,6 +12,7 @@ in stages, each step one tested commit: [TODO.md](TODO.md).
 | Folder | What it is | Licence |
 |---|---|---|
 | [`app/`](app/) | **The chess app, current.** A sae app in sae's TypeScript dialect: `app.json` (its manifest), `chess.ts` (the page), `chess/` (the game with no ui: the engine ported from `src/`, then the game, its commands and its REXX functions). | MIT |
+| [`rexx/`](rexx/) | REXX scripts that drive the running app over sae's control bus (`ADDRESS CHESS`, `rexx/chess-address.js`, run by RexxJS's CLI): the old iframe demo's scripts and a game by the control functions. | MIT |
 | [`tests/`](tests/) | `headless/` (the model, on sae's lowerer harness), `specs/` (the page, through sae-driver), `lib/` (the specs' driver verbs). | MIT |
 | `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md), [CHESS_COMMANDS.md](CHESS_COMMANDS.md)). It stays until the sae app has taken in what it did, then goes to history. | MIT |
 
@@ -55,8 +56,9 @@ driver the specs use):
 ```
 
 `--control-bus` after it switches on the control bus, so other programs on
-this machine can drive the game (sae's `docs/control-bus.md`), once stage 2
-of TODO.md has it listening.
+this machine can drive the game (sae's `docs/control-bus.md`): `sae-bus
+Chess 'MOVE("e2", "e4")'` sends one request, and REXX scripts reach it by
+`ADDRESS CHESS` ([rexx/README.md](rexx/README.md)).
 
 ### Testing it
 
@@ -70,8 +72,8 @@ one line of PASS or FAIL each, with
 logs under `target/run-tests/`. `./run-tests.sh headless` runs only the
 headless tests; `./run-tests.sh spec_app_chess` only that spec.
 `SAE_DIR=...` picks another sae checkout. On Linux with no display it runs
-under `xvfb-run`. The REXX scripts' spec and the MCP server (stage 2) will
-need `node` and RexxJS checked out beside this repository
+under `xvfb-run`. The REXX scripts' spec (`spec_app_chess_rexx`) needs
+`node` and RexxJS checked out beside this repository
 (`RexxJS -> ../RexxJS`).
 
 ### Re-vendoring RexxJS

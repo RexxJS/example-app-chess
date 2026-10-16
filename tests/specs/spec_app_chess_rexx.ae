@@ -1,0 +1,84 @@
+// spec_app_chess_rexx.ae — the REXX scripts in rexx/ drive the app over its
+// control bus, as a person would run them: RexxJS's own CLI, ADDRESS CHESS
+// (rexx/chess-address.js), and sae's sae-bus doing the sealing. The old
+// control-bus demo's four scripts by its old command lines, then a game by
+// the control functions; each must exit 0 and finish with its own line,
+// and the page must show the game they left.
+//   ./run-tests.sh spec_app_chess_rexx
+// Needs node, a RexxJS checkout beside this repository (the RexxJS link)
+// and sae's target/sae-bus.
+import std.spec
+import std.string
+import std.list
+import std.os
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+// A script's whole output (stdout and stderr) and its exit status. `env`
+// is prepended to the command ("" for none).
+rexx_(script: string, env: string) -> (string, int) {
+    root = os_getenv("CHESS_ROOT")
+    argv = list.new()
+    list.add(argv, "-c")
+    list.add(argv, "cd \"$0\" && ${env} RexxJS/core/rexx \"rexx/$1\" 2>&1")
+    list.add(argv, root)
+    list.add(argv, script)
+    out, status, _err = os.run_capture("sh", argv, null)
+    return out, status
+}
+
+ran_(script: string, last: string) -> string {
+    out, status = rexx_(script, "")
+    spec.assert_eq(status, 0, "${script} exits 0")
+    spec.assert_contains(out, last, "${script} says so")
+    spec.assert_eq(string.contains(out, "Error executing script"), 0, "${script}: no error")
+    spec.assert_eq(string.contains(out, "✗"), 0, "${script}: nothing failed")
+    return out
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the REXX scripts, over the control bus") {
+        spec.it("test-connection: the app answers with its version") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            ran_("test-connection.rexx", "✓ Connection successful: chess version sae chess")
+        }
+        spec.it("test-connection: with no app to ask, RC 2 and sae-bus's reason, and EXIT 1") callback {
+            out, status = rexx_("test-connection.rexx", "SAE_APPDATA_DIR=/nonexistent")
+            spec.assert_eq(status, 1, "the script's EXIT 1 is the process's")
+            spec.assert_contains(out, "ERROR: no answer, RC 2", "RC 2")
+            spec.assert_contains(out, "sae-bus: no courier file at /nonexistent/.control-bus", "and why")
+        }
+        spec.it("the old demo's Play Opening Moves: the old command lines, and the page shows them") callback {
+            out = ran_("opening-moves.rexx", "✓ opening played")
+            spec.assert_contains(out, "Black: c7-c5", "both moves made")
+            spec.assert_contains(out, "Status:  {\"status\":\"in_progress\",\"toPlay\":\"white\"", "the old get-status's JSON")
+            spec.assert_true(c.wait_moves("e4 c5"), "on the page")
+        }
+        spec.it("the old demo's Get Available Moves, Display Board and Get Game Status") callback {
+            moves = ran_("get-moves.rexx", "✓ get-moves done")
+            spec.assert_contains(moves, "Available moves:  [\"a2a4\",", "the moves as JSON, as before")
+            board = ran_("show-board.rexx", "✓ get-board done")
+            spec.assert_contains(board, "5 . . ♟ . . . . . 5", "the board after c5")
+            spec.assert_contains(board, "4 . . . . ♙ . . . 4", "and e4")
+            status = ran_("game-status.rexx", "✓ get-status done")
+            spec.assert_contains(status, "\"legalMoves\":30", "thirty moves for white")
+            spec.assert_true(c.wait_moves("e4 c5"), "reading changed nothing")
+        }
+        spec.it("a game by the control functions: mate, a refusal said, one UNDO") callback {
+            out = ran_("play-a-game.rexx", "✓ a game played")
+            spec.assert_contains(out, "1. e4", "MOVE gives the SAN")
+            spec.assert_contains(out, "✓ refused: e8 to e6 is not a legal move for black", "an illegal move refused, with why")
+            spec.assert_contains(out, "mate: Qxf7#", "the mate")
+            spec.assert_contains(out, "✓ result 1-0", "the result")
+            spec.assert_contains(out, "status: checkmate to play: black", "GETSTATUS as a stem")
+            spec.assert_contains(out, "FEN: r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4", "the FEN after one UNDO")
+            spec.assert_true(c.wait_moves("e4 e5 Bc4 Nc6 Qh5 Nf6"), "the page after the UNDO")
+            spec.assert_true(b.wait_for_text("white to move: in_progress"), "and whose move")
+        }
+    }
+    return spec.run_summary(fw)
+}

@@ -78,7 +78,35 @@ function plain(v: unknown): unknown {
 
 // A maker of interpreters with the control functions and ADDRESS CHESS.
 function interpreterFor(host: ScriptHost, say: (line: string) => void): () => any {
+  // One ADDRESS CHESS line: an old command ("move from=e2 to=e4"), or a
+  // commands.ts line ("game.move san=Nf3"); RC 2 for none of either.
+  const addressChess = async (line: string): Promise<{ success: boolean; errorCode: number; errorMessage?: string; output: unknown }> => {
+    const { id, params } = parseLine(line.trim());
+    const old = OLD[id.toLowerCase()];
+    try {
+      if (old) {
+        const args = (old.args ? old.args(params) : []).filter((a) => a !== undefined);
+        if (id.toLowerCase() === "move" && (params.from === undefined || params.to === undefined)) throw new Error("from and to parameters required (e.g., from=e2 to=e4)");
+        if (id.toLowerCase() === "set-ai-difficulty" && params.level === undefined) throw new Error("level parameter required (1-4)");
+        const got = await functions[old.fn](...args);
+        return { success: true, errorCode: 0, output: old.json ? JSON.stringify(plain(got)) : got };
+      }
+      const o = host.run(line.trim());
+      if (!o.ok && o.message === `no command ${id}`) return { success: false, errorCode: 2, errorMessage: `Unknown command: ${id}`, output: `Unknown command: ${id}` };
+      return { success: o.ok, errorCode: o.ok ? 0 : 1, errorMessage: o.ok ? undefined : o.message, output: o.output ?? o.message };
+    } catch (e) {
+      return { success: false, errorCode: 1, errorMessage: lastLine(e), output: lastLine(e) };
+    }
+  };
   const own = {
+    // An ADDRESS CHESS line as a function, for the control bus (whose
+    // requests are expressions): what the line gave, or its refusal as the
+    // error. rexx/chess-address.js sends a line that is no call this way.
+    CHESSCOMMAND: async (line: unknown) => {
+      const r = await addressChess(String(line ?? ""));
+      if (!r.success) throw new Error(r.errorMessage ?? String(r.output));
+      return r.output;
+    },
     // A whole program (lines, loops, routines), run on an interpreter of its
     // own with these same functions: what it SAYs, and its RESULT. Inside a
     // control-bus request it is the request, so one step of undo, and taken
@@ -105,24 +133,7 @@ function interpreterFor(host: ScriptHost, say: (line: string) => void): () => an
   const interpreter = (out: (line: string) => void = say) => {
     const it = new RexxInterpreter(null, { output: (line: unknown) => out(String(line)) });
     it.addressTargets.set("chess", {
-      handler: async (line: string) => {
-        const { id, params } = parseLine(String(line).trim());
-        const old = OLD[id.toLowerCase()];
-        try {
-          if (old) {
-            const args = (old.args ? old.args(params) : []).filter((a) => a !== undefined);
-            if (id.toLowerCase() === "move" && (params.from === undefined || params.to === undefined)) throw new Error("from and to parameters required (e.g., from=e2 to=e4)");
-            if (id.toLowerCase() === "set-ai-difficulty" && params.level === undefined) throw new Error("level parameter required (1-4)");
-            const got = await functions[old.fn](...args);
-            return { success: true, errorCode: 0, output: old.json ? JSON.stringify(plain(got)) : got };
-          }
-          const o = host.run(String(line).trim());
-          if (!o.ok && o.message === `no command ${id}`) return { success: false, errorCode: 2, errorMessage: `Unknown command: ${id}`, output: `Unknown command: ${id}` };
-          return { success: o.ok, errorCode: o.ok ? 0 : 1, errorMessage: o.ok ? undefined : o.message, output: o.output ?? o.message };
-        } catch (e) {
-          return { success: false, errorCode: 1, errorMessage: lastLine(e), output: lastLine(e) };
-        }
-      },
+      handler: (line: string) => addressChess(String(line)),
       methods: {},
       metadata: { name: "chess" },
     });

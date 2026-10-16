@@ -73,6 +73,8 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
   LISTCOMMANDS: fn([opt("described", "flag", "1: each with its parameters, what it does and what it gives")], "The functions a script may call", "a stem of names, or of {name, signature, params, does, gives}"),
   BATCH_EXECUTE: fn([p("commands", "stem", "of {command, args}; or their JSON"), opt("stop", "flag", "1: the first that fails is the call's error (a control-bus request is then taken back whole)")],
     "Runs each command in turn, by name", "a JSON array of {index, command, success, result or error}"),
+  CHESSCOMMAND: fn([p("line", "text", "an ADDRESS CHESS line: \"move from=e2 to=e4\", \"get-board\", or a command such as \"game.move san=Nf3\"")],
+    "Runs one ADDRESS CHESS line, as a script's ADDRESS CHESS does (the control bus, whose requests are expressions, reaches the old commands so)", "what the line gives; its refusal is the error"),
   RUN_PROGRAM: fn([p("program", "text", "a whole REXX program: lines, loops, routines"), opt("encoding", "text", "\"json\": the program is a JSON string")],
     "Runs a whole program with these same functions, as one step of undo, taken back whole if it fails", "{said: a stem of its SAY lines, result: its RESULT}"),
 };

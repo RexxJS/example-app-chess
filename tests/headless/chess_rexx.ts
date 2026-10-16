@@ -8,6 +8,7 @@ import { Commands } from "./chess/commands.ts";
 import { eq } from "./lib/check.ts";
 
 const c = new Commands();
+const ask0 = (code: string) => c.chess(code, () => {});
 const said: string[] = [];
 const run = async (text: string) => {
   said.length = 0;
@@ -147,6 +148,12 @@ eq("a move with no to: RC 1, the old message", await run('ADDRESS CHESS "move fr
 c.run("game.new");
 eq("a command line of commands.ts works too", await run('ADDRESS CHESS "game.move san=Nf3"\nSAY RC RESULT\nADDRESS CHESS "game.move san=Nf3"\nSAY RC RESULT'), ["0 Nf3", "1 Nf3 is not a legal move for black"]);
 
+// CHESSCOMMAND: an ADDRESS CHESS line as a function, as the bus sends one.
+c.run("game.new");
+eq("CHESSCOMMAND runs an old line, and gives what it gave", [(await ask0('CHESSCOMMAND("move from=e2 to=e4")')).output, (await ask0('CHESSCOMMAND("get-position-fen")')).output],
+  ["e4", "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]);
+eq("its refusal is the request's error", (await ask0('CHESSCOMMAND("castle")')).message, "Unknown command: castle (nothing it did was kept)");
+
 // The functions by name, in a program.
 c.run("game.new");
 eq("the functions by name", await run(`r = MOVE("e2", "e4")
@@ -205,6 +212,8 @@ eq("and after it, a request is one step as before", [(await ask('MOVESAN("Nf3");
 // expect: ok an unknown command: RC 2
 // expect: ok a move with no to: RC 1, the old message
 // expect: ok a command line of commands.ts works too
+// expect: ok CHESSCOMMAND runs an old line, and gives what it gave
+// expect: ok its refusal is the request's error
 // expect: ok the functions by name
 // expect: ok a function's error ends the script, said
 // expect: ok a request's answer is what it came to

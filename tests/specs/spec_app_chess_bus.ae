@@ -1,0 +1,74 @@
+// spec_app_chess_bus.ae — the chess app driven over sae's control bus, as
+// another program on the machine drives it: each request a string of REXX
+// (MOVE("e2", "e4"), GETFEN()), answered with what it came to, the page
+// showing the game after it. One request is one step of undo; one that
+// fails part way is taken back whole; one past the page's time limit is
+// stopped and taken back.
+//   ./run-tests.sh spec_app_chess_bus
+import std.spec
+import std.string
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the chess app over the control bus") {
+        spec.it("MOVE from another program makes the move, and the page shows it") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            url, key = courier_()
+            spec.assert_true(string.ends_with(url, "/api/chess") == 1, "at the app's name")
+            status, plain = command_(key, "MOVE(\"e2\", \"e4\")")
+            spec.assert_str_eq(status, "HTTP/1.1 200 OK", "answered")
+            spec.assert_contains(plain, "\"success\":true", "succeeded")
+            spec.assert_contains(plain, "\"result\":\"e4\"", "the move in SAN")
+            spec.assert_true(c.wait_moves("e4"), "on the page")
+            spec.assert_true(b.wait_for_text("black to move: in_progress"), "black to move")
+        }
+        spec.it("GETFEN and GETBOARD read it back; a bad move says why and changes nothing") callback {
+            _u, key = courier_()
+            _s1, got = command_(key, "GETFEN()")
+            spec.assert_contains(got, "\"result\":\"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1\"", "the FEN")
+            _s2, board = command_(key, "GETBOARD()")
+            spec.assert_contains(board, "4 . . . . ♙ . . . 4", "the diagram's fourth rank")
+            _s3, bad = command_(key, "MOVE(\"e2\", \"e4\")")
+            spec.assert_contains(bad, "\"success\":false", "refused")
+            spec.assert_contains(bad, "e2 to e4 is not a legal move for black", "and why")
+            spec.assert_true(c.wait_moves("e4"), "the page as it was")
+        }
+        spec.it("several moves in one request are one step of undo") callback {
+            _u, key = courier_()
+            _s1, three = command_(key, "MOVESAN(\"e5\"); MOVESAN(\"Nf3\"); MOVESAN(\"Nc6\")")
+            spec.assert_contains(three, "\"success\":true", "made")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "all three on the page")
+            _s2, undo = command_(key, "UNDO()")
+            spec.assert_contains(undo, "\"result\":3", "one UNDO takes back three moves")
+            spec.assert_true(c.wait_moves("e4"), "the page back at e4")
+            _s3, _r = command_(key, "REDO()")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "and one REDO puts them back")
+        }
+        spec.it("a request that fails part way is taken back whole") callback {
+            _u, key = courier_()
+            _s1, bad = command_(key, "MOVESAN(\"Bb5\"); MOVESAN(\"a6\"); BOGUS()")
+            spec.assert_contains(bad, "\"success\":false", "refused")
+            spec.assert_contains(bad, "(nothing it did was kept)", "and taken back")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "the page as before it")
+            _s2, fen = command_(key, "GETFEN()")
+            spec.assert_contains(fen, "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3", "the game as before it")
+        }
+        spec.it("a request past the page's time limit is stopped, and all of it taken back") callback {
+            _u, key = courier_()
+            _s1, slow = command_(key, "MOVESAN(\"Bb5\"); n = 0; DO i = 1 TO 3000; DO j = 1 TO 3000; n = n + 1; END; END")
+            spec.assert_contains(slow, "\"success\":false", "a failure")
+            spec.assert_true(b.wait_for_console("chess: a control-bus request was stopped: taken back"), "the app says so")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6"), "its move taken back")
+            _s2, after = command_(key, "MOVESAN(\"Bc4\")")
+            spec.assert_contains(after, "\"result\":\"Bc4\"", "and the next request is made")
+            _s3, undo = command_(key, "UNDO()")
+            spec.assert_contains(undo, "\"result\":1", "one step, as before")
+        }
+    }
+    return spec.run_summary(fw)
+}

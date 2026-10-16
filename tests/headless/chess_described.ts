@@ -8,8 +8,8 @@ import { DESCRIBED, signature } from "./chess/described.ts";
 import { eq } from "./lib/check.ts";
 
 const cmds = new Commands();
-// RUN_PROGRAM is script.ts's (2.4), given here as the "others" a script has.
-const fns = controlFunctions((id, params) => cmds.execute(id, params), cmds.game, { RUN_PROGRAM: (_source: unknown, _encoding?: unknown) => "" });
+// RUN_PROGRAM and CHESSCOMMAND are script.ts's, given here as the "others" a script has.
+const fns = controlFunctions((id, params) => cmds.execute(id, params), cmds.game, { RUN_PROGRAM: (_source: unknown, _encoding?: unknown) => "", CHESSCOMMAND: (_line: unknown) => "" });
 const unstem = (s: Record<string, any>) => Array.from({ length: Number(s[0]) }, (_, i) => s[i + 1]);
 
 const names: string[] = unstem(fns.LISTCOMMANDS());
@@ -25,6 +25,7 @@ for (const [name, f] of Object.entries(CONTROL)) takes[name] = Math.max(0, f.len
 takes.LISTCOMMANDS = fns.LISTCOMMANDS.length;
 takes.BATCH_EXECUTE = fns.BATCH_EXECUTE.length;
 takes.RUN_PROGRAM = 2;
+takes.CHESSCOMMAND = 1;
 eq("each one's parameters are as many as it takes", Object.keys(takes).filter((n) => DESCRIBED[n] && fixed(n) !== takes[n]).map((n) => `${n}: ${fixed(n)} described, takes ${takes[n]}`), []);
 eq("none takes the rest of its arguments", Object.keys(DESCRIBED).filter((n) => DESCRIBED[n].params.some((x) => x.variadic)), []);
 const TYPES = ["square", "san", "fen", "piece", "side", "level", "text", "number", "flag", "json", "stem"];
