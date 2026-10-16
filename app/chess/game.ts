@@ -73,6 +73,7 @@ export interface Snapshot {
   readonly flipped: boolean;
   readonly dark?: boolean;
   readonly boardSize?: number;
+  readonly boardFit?: boolean;
   readonly pgn?: PgnKept | null;
 }
 
@@ -95,6 +96,8 @@ export class Game {
   dark = false;
   /** The board's size on the page, in pixels (view.boardSize); not part of a game file. */
   boardSize = 480;
+  /** The board follows the window (the page sizes it to fit, view.boardSize fit=1); a size set by hand stops it. Not part of a game file. */
+  boardFit = true;
   /** What a game read from PGN keeps besides its moves (its tags, comments, variations), to write again; null for a game not read so. */
   pgn: PgnKept | null = null;
   /** Set while a group is open: the step the moves made since fold into (its index in `steps`), or -1 before its first move. */
@@ -405,6 +408,7 @@ export class Game {
     g.flipped = f.flipped === true;
     g.dark = this.dark;
     g.boardSize = this.boardSize;
+    g.boardFit = this.boardFit;
     this.restore(g.saved());
     // Read in: nothing to redo, nothing to undo past its own moves.
     this.redoSteps = [];
@@ -447,6 +451,7 @@ export class Game {
     g.flipped = this.flipped;
     g.dark = this.dark;
     g.boardSize = this.boardSize;
+    g.boardFit = this.boardFit;
     this.restore(g.saved());
     this.redoSteps = [];
   }
@@ -466,6 +471,7 @@ export class Game {
       flipped: this.flipped,
       dark: this.dark,
       boardSize: this.boardSize,
+      boardFit: this.boardFit,
       ...(this.pgn ? { pgn: this.pgn } : {}),
     };
   }
@@ -504,6 +510,7 @@ export class Game {
     this.flipped = s.flipped;
     this.dark = s.dark === true;
     if (typeof s.boardSize === "number") this.boardSize = s.boardSize;
+    if (typeof s.boardFit === "boolean") this.boardFit = s.boardFit;
     this.pgn = s.pgn ?? null;
     this.#group = group === null ? null : -1;
   }
@@ -536,6 +543,7 @@ export interface State {
   readonly balance: number;
   readonly dark: boolean;
   readonly boardSize: number;
+  readonly boardFit: boolean;
 }
 
 export function stateOf(game: Game): State {
@@ -548,7 +556,7 @@ export function stateOf(game: Game): State {
     canUndo: game.canUndo(), canRedo: game.canRedo(), startFen: game.startFen,
     aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
     future: game.future().map((m) => m.san), statusText: game.statusText(),
-    capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance, dark: game.dark, boardSize: game.boardSize,
+    capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance, dark: game.dark, boardSize: game.boardSize, boardFit: game.boardFit,
   };
 }
 

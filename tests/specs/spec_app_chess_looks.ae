@@ -1,7 +1,8 @@
 // spec_app_chess_looks.ae — the looks (TODO.md 3.6): the page padded from
 // the window's edge; a dark mode (view.dark: the page's theme and the
-// board's palette); the board keeping square as the window widens and as
-// its size changes (view.boardSize: Smaller, Larger, BOARDSIZE); a move
+// board's palette); the board following the window (sae's ui.on_resize
+// and vg.resize), square, and sized by hand (view.boardSize: Smaller,
+// Larger, Fit board, BOARDSIZE); a move
 // typed into a field; and the start position's pixels against a reference
 // grid (tests/specs/ref/board-start.grid; CHESS_WRITE_REF=1 writes it).
 //   ./run-tests.sh spec_app_chess_looks
@@ -12,6 +13,29 @@ import std.os (os_getenv)
 import saedriver as b
 import chessdriver as c
 import uidriver
+
+// 1 once the board is wider than `w` (polled for 3 s), and narrower.
+wait_board_over(w: int) -> int {
+    i = 0
+    while i < 60 {
+        bw, _bh = c.board_wh()
+        if bw > w { return 1 }
+        sleep(50)
+        i = i + 1
+    }
+    return 0
+}
+
+wait_board_under(w: int) -> int {
+    i = 0
+    while i < 60 {
+        bw, _bh = c.board_wh()
+        if bw < w { return 1 }
+        sleep(50)
+        i = i + 1
+    }
+    return 0
+}
 
 main() {
     fw = spec.init()
@@ -53,38 +77,46 @@ main() {
             spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "a1 light-look again")
             spec.assert_str_eq(b.style_of("button", "Undo", "fg"), "#222222", "a button's label dark again")
         }
-        spec.it("the board keeps square as the window widens") callback {
+        spec.it("the board follows the window: larger and smaller, square, its canvas its own size") callback {
             w0, h0 = c.board_wh()
             spec.assert_eq(w0, h0, "square at first (${w0} x ${h0})")
-            uidriver.resize_window(1400, 1000)
-            sleep(600)
-            cw = uidriver.widget_int_field_by_id(b.vg_canvas(), "w")
-            spec.assert_true(cw > 1000, "the canvas widened (${cw})")
+            spec.assert_eq(uidriver.widget_int_field_by_id(b.vg_canvas(), "w"), w0, "the canvas the board's size, not stretched")
+            uidriver.resize_window(1400, 1200)
+            spec.assert_true(wait_board_over(w0), "a larger window, a larger board (from ${w0})")
             w1, h1 = c.board_wh()
             spec.assert_eq(w1, h1, "still square (${w1} x ${h1})")
-            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "and its squares where the driver finds them")
-        }
-        spec.it("Larger, Smaller and the size it is told: square at every size") callback {
-            w0, _h0 = c.board_wh()
-            b.click("Larger")
-            spec.assert_true(b.wait_for_console("chess: the board is 560 pixels"), "Larger")
-            spec.assert_true(b.wait_for_vg_canvas(), "drawn again")
-            sleep(300)
-            w1, h1 = c.board_wh()
-            spec.assert_true(w1 > w0, "larger (${w0} to ${w1})")
-            spec.assert_eq(w1, h1, "square")
-            spec.assert_true(c.wait_piece("e1", 0, "♔"), "the pieces drawn again")
-            b.click("Smaller")
-            b.click("Smaller")
-            spec.assert_true(b.wait_for_console("chess: the board is 400 pixels"), "Smaller twice")
-            sleep(300)
-            w2, h2 = c.board_wh()
-            spec.assert_true(w2 < w0, "smaller (${w2})")
-            spec.assert_eq(w2, h2, "square")
+            spec.assert_eq(uidriver.widget_int_field_by_id(b.vg_canvas(), "w"), w1, "and its canvas with it")
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "its squares where the driver finds them")
             c.click_square("e2", 0)
             c.click_square("e4", 0)
-            spec.assert_true(c.wait_moves("e4"), "and a move by clicks at that size")
+            spec.assert_true(c.wait_moves("e4"), "a move by clicks at that size: the same scene, resized")
             b.click("Undo")
+            uidriver.resize_window(1000, 900)
+            spec.assert_true(wait_board_under(w1), "the window back, the board smaller again (from ${w1})")
+            w2, h2 = c.board_wh()
+            spec.assert_eq(w2, h2, "square (${w2} x ${h2})")
+        }
+        spec.it("Larger, Smaller: a size by hand, which the window does not change; Fit board follows it again") callback {
+            w0, _h0 = c.board_wh()
+            b.click("Larger")
+            spec.assert_true(b.wait_for_console("chess: the board is ${w0 + 80} pixels"), "Larger: 80 px more")
+            w1, h1 = c.board_wh()
+            spec.assert_eq(w1, w0 + 80, "larger (${w0} to ${w1})")
+            spec.assert_eq(w1, h1, "square")
+            spec.assert_true(c.wait_piece("e1", 0, "♔"), "the pieces there")
+            b.click("Smaller")
+            b.click("Smaller")
+            spec.assert_true(b.wait_for_console("chess: the board is ${w0 - 80} pixels"), "Smaller twice")
+            uidriver.resize_window(1400, 1200)
+            sleep(800)
+            w2, h2 = c.board_wh()
+            spec.assert_eq(w2, w0 - 80, "the window larger, the size by hand kept (${w2})")
+            spec.assert_eq(w2, h2, "square")
+            b.click("Fit board")
+            spec.assert_true(b.wait_for_text("the board follows the window"), "Fit board")
+            spec.assert_true(wait_board_over(w0), "following the window again: the larger board")
+            uidriver.resize_window(1000, 900)
+            spec.assert_true(wait_board_under(w0 + 1), "and back")
         }
         spec.it("a move typed into the field, coordinate or SAN; a wrong one refused and left to correct") callback {
             spec.assert_true(c.wait_moves(""), "a new game")

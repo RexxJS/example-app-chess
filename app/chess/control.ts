@@ -140,7 +140,7 @@ export const CONTROL: Readonly<Record<string, Control>> = {
     return analyzeOnce(game, game.aiLevel).then((a) => a.best);
   },
   FLIPBOARD: (exec) => must(exec, "board.flip").output,
-  BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : { px: text(px) }).output,
+  BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : text(px).trim().toLowerCase() === "fit" ? { fit: "1" } : { px: text(px) }).output,
   DARKMODE: (exec, _g, on) => must(exec, "view.dark", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,
 };
 

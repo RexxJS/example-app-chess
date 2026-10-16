@@ -15,8 +15,8 @@ export function moveLabel(ply: number, san: string, current: boolean): string {
 
 interface Row { readonly n: number; readonly white: string; readonly black: string; readonly key: string }
 
-export function sidebar(v: ChessView): void {
-  ui.vstack(() => {
+export function sidebar(v: ChessView): number {
+  return ui.vstack(() => {
     bind(ui.text(""), computed(() => v.game.value?.statusText ?? "", v.game));
     bind(ui.text(""), computed(() => {
       const g = v.game.value;

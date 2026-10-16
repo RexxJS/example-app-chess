@@ -29,6 +29,7 @@ export function toolbar(v: ChessView): void {
     ui.btn("Dark mode", () => v.run("view.dark"));
     ui.btn("Smaller", () => v.run("view.boardSize", { by: "-80" }));
     ui.btn("Larger", () => v.run("view.boardSize", { by: "80" }));
+    ui.btn("Fit board", () => v.run("view.boardSize", { fit: "1" }));
     if (typeof documents !== "undefined") {
       ui.btn("Open", () => openGame(v));
       ui.btn("Save", () => saveGame(v));
@@ -69,6 +70,7 @@ export function menuBar(v: ChessView): void {
   ui.menu("Board", () => {
     ui.menu_item("Flip board", () => v.run("board.flip"));
     ui.menu_item("Dark mode", () => v.run("view.dark"));
+    ui.menu_item("Fit board to the window", () => v.run("view.boardSize", { fit: "1" }));
   });
   ui.menu("Computer", () => {
     for (const [label, side] of PLAYS) ui.menu_item(label, () => v.run("ai.side", { side }));

@@ -67,19 +67,21 @@ export function squareFill(s: Shown, index: number): string {
 }
 
 /**
- * The board, in a column of its own: drawn at the game's board size
- * (view.boardSize), and drawn again when the size changes. The viewBox
- * fits the canvas uniformly, centred, so the board stays square however
- * wide the window makes it.
+ * The board, in a column of its own, at the game's board size
+ * (view.boardSize): by itself the largest square the window has room for
+ * (ChessView.fitBoard, on sae's ui.on_resize), or a size set by hand. A
+ * change of size resizes the scene in place (sae's vg.resize): its
+ * shapes, bindings and handlers stay. The viewBox fits the canvas
+ * uniformly, so the board is square at every size.
  */
 export function boardPanel(v: ChessView): void {
   let size = v.cmds.game.boardSize;
-  const column = ui.vstack(() => { scene(v, size); });
+  let board = 0;
+  ui.vstack(() => { board = scene(v, size); });
   v.watch((s) => {
     if (s.boardSize === size) return;
     size = s.boardSize;
-    ui.clear(column);
-    ui.into(column, () => { scene(v, size); });
+    vg.resize(board, size, size);
     print(`chess: the board is ${size} pixels`);
   });
 }

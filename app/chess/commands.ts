@@ -339,8 +339,17 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
-    id: "view.boardSize", label: "Board size", params: [], optional: ["px", "by"], journaled: true,
+    id: "view.boardSize", label: "Board size", params: [], optional: ["px", "by", "fit"], journaled: true,
+    // px= or by= a size by hand, which the board keeps; fit=1 the board
+    // follows the window again (the page sizes it to the room there is).
     run: (game, p) => {
+      if (p.fit !== undefined) {
+        if (!/^(0|1|on|off|true|false|yes|no)$/i.test(p.fit.trim())) refuse(`${p.fit} is not on or off (1 or 0)`);
+        game.boardFit = /^(1|on|true|yes)$/i.test(p.fit.trim());
+        if (p.px === undefined && p.by === undefined) {
+          return { ok: true, message: game.boardFit ? "the board follows the window" : `the board stays ${game.boardSize} pixels square`, output: game.boardSize };
+        }
+      }
       let px = game.boardSize;
       if (p.px !== undefined) px = Number(p.px);
       else if (p.by !== undefined) px = game.boardSize + Number(p.by);
@@ -350,6 +359,7 @@ export const SPECS: readonly Spec[] = [
         px = Math.max(BOARD_SIZES.min, Math.min(BOARD_SIZES.max, px));
       }
       game.boardSize = px;
+      game.boardFit = false;
       return { ok: true, message: `the board is ${px} pixels square`, output: px };
     },
   },

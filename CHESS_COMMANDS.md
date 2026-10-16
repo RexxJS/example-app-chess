@@ -67,7 +67,7 @@ the bus and the MCP server give back.
 | [`ANALYZE([depth])`](#analyze) | What the computer makes of the position: its value, the best move and the line it expects (the game is not changed) | {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes} |
 | [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
-| [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; it stays square as the window changes | the size, in pixels |
+| [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for | the size, in pixels |
 | [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
 | [`CHESSCOMMAND(line)`](#chesscommand) | Runs one ADDRESS CHESS line, as a script's ADDRESS CHESS does (the control bus, whose requests are expressions, reaches the old commands so) | what the line gives; its refusal is the error |
 | [`RUN_PROGRAM(program, [encoding])`](#run_program) | Runs a whole program with these same functions, as one step of undo, taken back whole if it fails | {said: a stem of its SAY lines, result: its RESULT} |
@@ -450,11 +450,11 @@ Turns the board round: black at the bottom, or white again. Gives 1 when black i
 BOARDSIZE([px])
 ```
 
-Sets the board's size on the page, in pixels; it stays square as the window changes. Gives the size, in pixels.
+Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for. Gives the size, in pixels.
 
 | Parameter | Kind | |
 |---|---|---|
-| `px` | number, optional | 240 to 960; left out: the size it is |
+| `px` | number, optional | 240 to 960, which the board then keeps; "fit": it follows the window again; left out: the size it is |
 
 ### DARKMODE
 

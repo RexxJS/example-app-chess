@@ -32,12 +32,17 @@ looks(v);
 // The page in a padded column: the window's edge is not the board's.
 ui.vstack(() => {
   ui.margin(16, 16, 16, 16);
-  ui.text("Chess");
-  toolbar(v);
+  const above = ui.vstack(() => {
+    ui.text("Chess");
+    toolbar(v);
+  });
+  let beside = 0;
   ui.hstack(() => {
     boardPanel(v);
-    sidebar(v);
+    beside = sidebar(v);
   });
+  // The room the board has: the window less the sidebar and what is above it.
+  v.measure = () => ({ beside: ui.width(beside), above: ui.height(above) });
   promotionBar(v);
   analysisPanel(v);
   moveField(v);
@@ -56,6 +61,9 @@ ui.vstack(() => {
   scriptPanel(v);
 });
 v.refresh();
+// The window's size, now and at every change (sae's ui.on_resize): the
+// board follows it, resized in place (vg.resize).
+ui.on_resize((w: number, h: number) => v.windowSized(w, h));
 if (resumed >= 0) {
   v.status.set(`the game in progress is back: ${resumed} moves`);
   print(`chess: resumed a game of ${resumed} moves`);

@@ -86,6 +86,8 @@ c.run("view.dark on=0");
 eq("view.boardSize: set, by a step, held to its limits, refused", [ok("view.boardSize px=640"), ok("view.boardSize by=80"), ok("view.boardSize by=800"), refused("view.boardSize px=100"), refused("view.boardSize px=big"), c.game.boardSize],
   ["the board is 640 pixels square", "the board is 720 pixels square", "the board is 960 pixels square", "a board is 240 to 960 pixels, not 100", "big is not a number of pixels", 960]);
 c.run("view.boardSize px=480");
+eq("view.boardSize: a size by hand stops the board following the window; fit=1 starts it again", [c.game.boardFit, ok("view.boardSize fit=1"), c.game.boardFit, ok("view.boardSize fit=0"), c.game.boardFit, refused("view.boardSize fit=maybe")],
+  [false, "the board follows the window", true, "the board stays 480 pixels square", false, "maybe is not on or off (1 or 0)"]);
 eq("board.flip", [ok("board.flip"), c.game.flipped, ok("board.flip"), c.game.flipped], ["black at the bottom", true, "white at the bottom", false]);
 eq("game.new clears the game and keeps the settings", [c.run("game.state").output.fen, c.game.aiLevel], [START_FEN, 4]);
 
@@ -137,6 +139,7 @@ eq("its first lines", c.journal().slice(0, 4), ["game.move from=e2 to=e4", "game
 // expect: ok ai.move: the computer plays at its level, one step of undo
 // expect: ok view.dark: on, off, toggled, refused
 // expect: ok view.boardSize: set, by a step, held to its limits, refused
+// expect: ok view.boardSize: a size by hand stops the board following the window; fit=1 starts it again
 // expect: ok board.flip
 // expect: ok game.new clears the game and keeps the settings
 // expect: ok the journal replays to the same game

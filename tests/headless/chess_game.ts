@@ -82,7 +82,7 @@ eq("after the group, a move is a step of its own", g.steps, [3, 1]);
 g.undo();
 g.aiLevel = 3; g.aiSide = "black"; g.flipped = true;
 const s = g.saved();
-eq("the snapshot", s, { startFen: START_FEN, moves: ["e2e4", "e7e5", "g1f3"], steps: [3], redo: [["b8c6"]], resigned: null, drawAgreed: false, aiLevel: 3, aiSide: "black", flipped: true, dark: false, boardSize: 480 });
+eq("the snapshot", s, { startFen: START_FEN, moves: ["e2e4", "e7e5", "g1f3"], steps: [3], redo: [["b8c6"]], resigned: null, drawAgreed: false, aiLevel: 3, aiSide: "black", flipped: true, dark: false, boardSize: 480, boardFit: true });
 play("d6"); g.newGame(); g.aiSide = "none";
 const h = new Game();
 h.restore(s);

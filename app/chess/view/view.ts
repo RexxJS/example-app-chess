@@ -6,7 +6,7 @@
 import { getIndexFromAlgebraic, getAlgebraicFromIndex } from "../chess.ts";
 import { Commands } from "../commands.ts";
 import type { Outcome, Params } from "../commands.ts";
-import { stateOf } from "../game.ts";
+import { BOARD_SIZES, stateOf } from "../game.ts";
 import type { State } from "../game.ts";
 import { think } from "../think.ts";
 import { analysisOf, lineText } from "../analysis.ts";
@@ -68,6 +68,7 @@ export class ChessView {
   run(id: string, params: Params = {}): Outcome {
     const o = this.cmds.execute(id, params);
     this.#selected = -1;
+    if (id === "view.boardSize") this.fitBoard();
     this.refresh();
     this.status.set(o.message);
     return o;
@@ -150,6 +151,36 @@ export class ChessView {
     this.#analysing = a;
     this.#analysedKey = a.key;
     this.analysis.set(hint ? "Finding a hint" : "Analysing");
+  }
+
+  // ---- the board following the window (sae's ui.on_resize)
+
+  /** How the page measures what is not the board: the sidebar's width and the height above the board (chess.ts gives it). */
+  measure: () => { beside: number; above: number } = () => ({ beside: 0, above: 0 });
+  #window: [number, number] = [0, 0];
+
+  /** The window's content size, as sae tells it: the board fitted to it, when it follows the window. */
+  windowSized(w: number, h: number): void {
+    this.#window = [w, h];
+    this.fitBoard();
+  }
+
+  /** The largest square there is room for: the window less the padding (16 px a side), the sidebar and what is above the board, 240 to 960 px. */
+  fitSize(): number {
+    const [w, h] = this.#window;
+    const m = this.measure();
+    const room = Math.min(w - 32 - m.beside - 24, h - 32 - m.above - 24);
+    return Math.max(BOARD_SIZES.min, Math.min(BOARD_SIZES.max, Math.floor(room / 8) * 8));
+  }
+
+  /** When the board follows the window: its size from the room there is (not a command: the window, not the person, changed it). */
+  fitBoard(): void {
+    const g = this.cmds.game;
+    if (!g.boardFit || this.#window[0] <= 0) return;
+    const px = this.fitSize();
+    if (px === g.boardSize) return;
+    g.boardSize = px;
+    this.refresh();
   }
 
   /** Undo, against the computer: back to the person's move (two moves, the computer's and theirs), when the computer plays one side. */

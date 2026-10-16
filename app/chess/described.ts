@@ -87,7 +87,7 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
     "{value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: \"+0.35\" or \"#2\"; best: the best move in SAN; coordinate: it as \"e2e4\"; pv: a stem of the line in SAN; depth; nodes}"),
   HINT: fn([], "The move the computer would play for the side to move, at its level (the game is not changed)", "the move in SAN"),
   FLIPBOARD: fn([], "Turns the board round: black at the bottom, or white again", "1 when black is at the bottom, else 0"),
-  BOARDSIZE: fn([opt("px", "number", "240 to 960; left out: the size it is")], "Sets the board's size on the page, in pixels; it stays square as the window changes", "the size, in pixels"),
+  BOARDSIZE: fn([opt("px", "number", "240 to 960, which the board then keeps; \"fit\": it follows the window again; left out: the size it is")], "Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for", "the size, in pixels"),
   DARKMODE: fn([opt("on", "flag", "1: dark, 0: light; left out: the other one")], "The page's dark look, or the light", "1 when dark, else 0"),
   // ---- the app
   CHESS_VERSION: fn([], "The app's version", "e.g. \"sae chess\""),

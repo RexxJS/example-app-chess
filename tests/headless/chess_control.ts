@@ -53,6 +53,7 @@ throws("a level that is none", () => fns.SETAIDIFFICULTY(7), Error, "7 is not a 
 fns.NEWGAME();
 eq("AIMOVE: the computer's move, in SAN; UNDO takes it back", [fns.AIMOVE(), fns.UNDO(), fns.GETMOVEHISTORY()[0]], ["Nc3", 1, 0]);
 eq("FLIPBOARD", [fns.FLIPBOARD(), fns.FLIPBOARD()], [1, 0]);
+eq("BOARDSIZE: a size by hand, then \"fit\": the board follows the window again", [fns.BOARDSIZE(560), cmds.game.boardFit, fns.BOARDSIZE("fit"), cmds.game.boardFit], [560, false, 560, true]);
 eq("CHESS_VERSION", fns.CHESS_VERSION(), "sae chess");
 fns.NEWGAME();
 for (const t of ["e4", "d5", "exd5", "Qxd5"]) fns.MOVESAN(t);
@@ -97,6 +98,7 @@ eq("with stop, the first failure is the call's error, and the rest are not run",
 // expect: ok a level that is none
 // expect: ok AIMOVE: the computer's move, in SAN; UNDO takes it back
 // expect: ok FLIPBOARD
+// expect: ok BOARDSIZE: a size by hand, then "fit": the board follows the window again
 // expect: ok CHESS_VERSION
 // expect: ok GETCAPTURED
 // expect: ok GOTOMOVE: back to move 2, then on to 3
