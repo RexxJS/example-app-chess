@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-35 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+37 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -59,6 +59,8 @@ the bus and the MCP server give back.
 | [`SETAISIDE(side)`](#setaiside) | Which side the computer plays | the side |
 | [`AIMOVE()`](#aimove) | The computer makes a move for the side to move (stage 4 of TODO.md; until then it says there is no computer player yet) | the move in SAN |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
+| [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; it stays square as the window changes | the size, in pixels |
+| [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
 | [`CHESSCOMMAND(line)`](#chesscommand) | Runs one ADDRESS CHESS line, as a script's ADDRESS CHESS does (the control bus, whose requests are expressions, reaches the old commands so) | what the line gives; its refusal is the error |
 | [`RUN_PROGRAM(program, [encoding])`](#run_program) | Runs a whole program with these same functions, as one step of undo, taken back whole if it fails | {said: a stem of its SAY lines, result: its RESULT} |
 | [`LISTCOMMANDS([described])`](#listcommands) | The functions a script may call | a stem of names, or of {name, signature, params, does, gives} |
@@ -349,6 +351,30 @@ FLIPBOARD()
 ```
 
 Turns the board round: black at the bottom, or white again. Gives 1 when black is at the bottom, else 0.
+
+### BOARDSIZE
+
+```rexx
+BOARDSIZE([px])
+```
+
+Sets the board's size on the page, in pixels; it stays square as the window changes. Gives the size, in pixels.
+
+| Parameter | Kind | |
+|---|---|---|
+| `px` | number, optional | 240 to 960; left out: the size it is |
+
+### DARKMODE
+
+```rexx
+DARKMODE([on])
+```
+
+The page's dark look, or the light. Gives 1 when dark, else 0.
+
+| Parameter | Kind | |
+|---|---|---|
+| `on` | flag, optional | 1: dark, 0: light; left out: the other one |
 
 ### CHESSCOMMAND
 

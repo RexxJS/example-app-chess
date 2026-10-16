@@ -18,16 +18,23 @@ export interface Shown {
   readonly check: number;           // the king in check's square, or -1
   readonly selected: number;        // the square picked to move from, or -1
   readonly targets: readonly number[];
+  readonly dark: boolean;
 }
 
 export class ChessView {
   readonly cmds: Commands;
-  readonly shown = state<Shown>({ pieces: [], flipped: false, lastFrom: -1, lastTo: -1, check: -1, selected: -1, targets: [] });
+  readonly shown = state<Shown>({ pieces: [], flipped: false, lastFrom: -1, lastTo: -1, check: -1, selected: -1, targets: [], dark: false });
   readonly game = state<State | null>(null);
   readonly status = state("");          // what the last command said
   /** A pawn's move to the last rank, waiting for the piece it becomes; null when none is. */
   readonly promoting = state<{ from: number; to: number } | null>(null);
   #selected = -1;
+  /** Told the game's state after every refresh: the panels that rebuild themselves (looks.ts, board.ts's size). */
+  readonly #watchers: ((s: State) => void)[] = [];
+
+  watch(fn: (s: State) => void): void {
+    this.#watchers.push(fn);
+  }
 
   constructor(cmds: Commands = new Commands()) {
     this.cmds = cmds;
@@ -143,8 +150,9 @@ export class ChessView {
       this.shown.set({
         pieces, flipped: s.flipped,
         lastFrom: last ? getIndexFromAlgebraic(last.slice(0, 2)) : -1, lastTo: last ? getIndexFromAlgebraic(last.slice(2, 4)) : -1,
-        check: king, selected: this.#selected, targets: this.#selected >= 0 ? this.targetsOf(this.#selected) : [],
+        check: king, selected: this.#selected, targets: this.#selected >= 0 ? this.targetsOf(this.#selected) : [], dark: s.dark,
       });
     });
+    for (const fn of this.#watchers) fn(s);
   }
 }

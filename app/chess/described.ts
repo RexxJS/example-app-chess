@@ -77,6 +77,8 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
   SETAISIDE: fn([p("side", "side", "white, black, both or none")], "Which side the computer plays", "the side"),
   AIMOVE: fn([], "The computer makes a move for the side to move (stage 4 of TODO.md; until then it says there is no computer player yet)", "the move in SAN"),
   FLIPBOARD: fn([], "Turns the board round: black at the bottom, or white again", "1 when black is at the bottom, else 0"),
+  BOARDSIZE: fn([opt("px", "number", "240 to 960; left out: the size it is")], "Sets the board's size on the page, in pixels; it stays square as the window changes", "the size, in pixels"),
+  DARKMODE: fn([opt("on", "flag", "1: dark, 0: light; left out: the other one")], "The page's dark look, or the light", "1 when dark, else 0"),
   // ---- the app
   CHESS_VERSION: fn([], "The app's version", "e.g. \"sae chess\""),
   LISTCOMMANDS: fn([opt("described", "flag", "1: each with its parameters, what it does and what it gives")], "The functions a script may call", "a stem of names, or of {name, signature, params, does, gives}"),

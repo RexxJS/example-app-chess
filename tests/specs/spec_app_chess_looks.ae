@@ -1,0 +1,104 @@
+// spec_app_chess_looks.ae — the looks (TODO.md 3.6): the page padded from
+// the window's edge; a dark mode (view.dark: the page's theme and the
+// board's palette); the board keeping square as the window widens and as
+// its size changes (view.boardSize: Smaller, Larger, BOARDSIZE); a move
+// typed into a field; and the start position's pixels against a reference
+// grid (tests/specs/ref/board-start.grid; CHESS_WRITE_REF=1 writes it).
+//   ./run-tests.sh spec_app_chess_looks
+import std.spec
+import std.string
+import std.fs
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the looks") {
+        spec.it("the start position's pixels match the reference grid") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(c.wait_piece("e1", 0, "♔"), "drawn")
+            // The whole canvas (its size fixed by the window app.json gives),
+            // every 24 px.
+            cv = b.vg_canvas()
+            got = b.vg_grid(uidriver.widget_int_field_by_id(cv, "w"), uidriver.widget_int_field_by_id(cv, "h"), 24)
+            ref = "${os_getenv("CHESS_ROOT")}/tests/specs/ref/board-start.grid"
+            if os_getenv("CHESS_WRITE_REF") != null { _w = fs.write(ref, got) }
+            want, err = fs.read(ref)
+            spec.assert_str_eq(err, "", "the reference is there")
+            d = c.grid_diff(got, want, 40)
+            n = string.length(want) / 9
+            spec.assert_true(n > 400, "a grid of the whole board (${n} pixels)")
+            spec.assert_true(d <= n / 20, "at most one in twenty of ${n} sampled pixels differ (${d} do)")
+        }
+        spec.it("the page is padded from the window's edge") callback {
+            cv = b.vg_canvas()
+            spec.assert_true(uidriver.widget_int_field_by_id(cv, "x") >= 16, "the board's column 16 px in")
+            spec.assert_true(uidriver.widget_int_field_by_id(uidriver.widget_id_last_of("text", "Chess"), "x") >= 16, "the title too")
+        }
+        spec.it("a dark mode: the board's palette and the page's theme, and back") callback {
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "a1 in the light look")
+            b.click("Dark mode")
+            spec.assert_true(b.wait_for_console("chess: dark mode"), "the page's theme switched")
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK_DARK), "a1 in the dark look")
+            spec.assert_true(c.wait_square_rgb("h1", 0, c.DARK_LIGHT), "h1 too")
+            spec.assert_str_eq(b.style_of("text", "Chess", "fg"), "#e4e4e4", "the page's text light on dark")
+            spec.assert_str_eq(b.style_of("button", "Undo", "bg"), "#33373c", "a button dark")
+            spec.assert_str_eq(b.style_of("button", "Undo", "fg"), "#e4e4e4", "its label light")
+            spec.assert_str_eq(b.style_of("textfield", "", "bg"), "#2a2d31", "the move field dark")
+            b.click("Dark mode")
+            spec.assert_true(b.wait_for_console("chess: light mode"), "and back")
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "a1 light-look again")
+            spec.assert_str_eq(b.style_of("button", "Undo", "fg"), "#222222", "a button's label dark again")
+        }
+        spec.it("the board keeps square as the window widens") callback {
+            w0, h0 = c.board_wh()
+            spec.assert_eq(w0, h0, "square at first (${w0} x ${h0})")
+            uidriver.resize_window(1400, 1000)
+            sleep(600)
+            cw = uidriver.widget_int_field_by_id(b.vg_canvas(), "w")
+            spec.assert_true(cw > 1000, "the canvas widened (${cw})")
+            w1, h1 = c.board_wh()
+            spec.assert_eq(w1, h1, "still square (${w1} x ${h1})")
+            spec.assert_true(c.wait_square_rgb("a1", 0, c.DARK), "and its squares where the driver finds them")
+        }
+        spec.it("Larger, Smaller and the size it is told: square at every size") callback {
+            w0, _h0 = c.board_wh()
+            b.click("Larger")
+            spec.assert_true(b.wait_for_console("chess: the board is 560 pixels"), "Larger")
+            spec.assert_true(b.wait_for_vg_canvas(), "drawn again")
+            sleep(300)
+            w1, h1 = c.board_wh()
+            spec.assert_true(w1 > w0, "larger (${w0} to ${w1})")
+            spec.assert_eq(w1, h1, "square")
+            spec.assert_true(c.wait_piece("e1", 0, "♔"), "the pieces drawn again")
+            b.click("Smaller")
+            b.click("Smaller")
+            spec.assert_true(b.wait_for_console("chess: the board is 400 pixels"), "Smaller twice")
+            sleep(300)
+            w2, h2 = c.board_wh()
+            spec.assert_true(w2 < w0, "smaller (${w2})")
+            spec.assert_eq(w2, h2, "square")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            spec.assert_true(c.wait_moves("e4"), "and a move by clicks at that size")
+            b.click("Undo")
+        }
+        spec.it("a move typed into the field, coordinate or SAN; a wrong one refused and left to correct") callback {
+            spec.assert_true(c.wait_moves(""), "a new game")
+            b.set_field_by("Type a move: e2e4 or Nf3", "e2e4")
+            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            spec.assert_true(c.wait_moves("e4"), "e2e4 typed")
+            b.set_field_by("Type a move: e2e4 or Nf3", "Nf6")
+            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            spec.assert_true(c.wait_moves("e4 Nf6"), "Nf6 typed")
+            b.set_field_by("Type a move: e2e4 or Nf3", "Qh9")
+            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            spec.assert_true(b.wait_for_text("Qh9 is not a legal move for white"), "refused, said")
+            spec.assert_true(c.wait_moves("e4 Nf6"), "no move made")
+        }
+    }
+    return spec.run_summary(fw)
+}

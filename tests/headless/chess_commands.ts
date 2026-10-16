@@ -17,7 +17,7 @@ const refused = (line: string) => {
   return o.ok ? `OK ${o.message}` : o.message;
 };
 
-eq("the catalogue", c.catalogue().map((x) => x.id), ["game.new", "game.move", "game.undo", "game.redo", "game.goto", "game.setPosition", "game.resign", "game.offerDraw", "ai.level", "ai.side", "ai.move", "board.flip", "game.script", "game.export", "game.import", "game.state"]);
+eq("the catalogue", c.catalogue().map((x) => x.id), ["game.new", "game.move", "game.undo", "game.redo", "game.goto", "game.setPosition", "game.resign", "game.offerDraw", "ai.level", "ai.side", "ai.move", "board.flip", "game.script", "game.export", "game.import", "view.dark", "view.boardSize", "game.state"]);
 eq("searched by label", c.catalogue("flip").map((x) => `${x.id}: ${x.label}`), ["board.flip: Flip the board"]);
 eq("a command line parsed", parseLine('game.move from=e2 to=e4 san="Nf3" x=""'), { id: "game.move", params: { from: "e2", to: "e4", san: "Nf3", x: "" } });
 eq("and written", lineOf("game.setPosition", { fen: "8/8 w - - 0 1" }), 'game.setPosition fen="8/8 w - - 0 1"');
@@ -81,6 +81,11 @@ eq("ai.side", [ok("ai.side side=Black"), ok("ai.side side=none")], ["the compute
 eq("a side that is none", refused("ai.side side=green"), "green is not a side (white, black, both or none)");
 c.run("game.new");
 eq("ai.move until stage 4", refused("ai.move"), "no computer player yet (stage 4 of TODO.md)");
+eq("view.dark: on, off, toggled, refused", [ok("view.dark on=1"), c.game.dark, ok("view.dark on=off"), ok("view.dark"), c.game.dark, refused("view.dark on=maybe")], ["dark mode", true, "light mode", "dark mode", true, "maybe is not on or off (1 or 0)"]);
+c.run("view.dark on=0");
+eq("view.boardSize: set, by a step, held to its limits, refused", [ok("view.boardSize px=640"), ok("view.boardSize by=80"), ok("view.boardSize by=800"), refused("view.boardSize px=100"), refused("view.boardSize px=big"), c.game.boardSize],
+  ["the board is 640 pixels square", "the board is 720 pixels square", "the board is 960 pixels square", "a board is 240 to 960 pixels, not 100", "big is not a number of pixels", 960]);
+c.run("view.boardSize px=480");
 eq("board.flip", [ok("board.flip"), c.game.flipped, ok("board.flip"), c.game.flipped], ["black at the bottom", true, "white at the bottom", false]);
 eq("game.new clears the game and keeps the settings", [c.run("game.state").output.fen, c.game.aiLevel], [START_FEN, 4]);
 
@@ -130,6 +135,8 @@ eq("its first lines", c.journal().slice(0, 4), ["game.move from=e2 to=e4", "game
 // expect: ok ai.side
 // expect: ok a side that is none
 // expect: ok ai.move until stage 4
+// expect: ok view.dark: on, off, toggled, refused
+// expect: ok view.boardSize: set, by a step, held to its limits, refused
 // expect: ok board.flip
 // expect: ok game.new clears the game and keeps the settings
 // expect: ok the journal replays to the same game

@@ -40,7 +40,9 @@ app/
                     click or drag to move), promotion.ts, sidebar.ts
                     (the status, what is taken, the move list),
                     toolbar.ts (the buttons and the menu bar, Open and
-                    Save), scriptpanel.ts (a REXX script run in the page)
+                    Save), scriptpanel.ts (a REXX script run in the page,
+                    and the recorder), keyboard.ts (a move typed), looks.ts
+                    (the light and dark themes)
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move

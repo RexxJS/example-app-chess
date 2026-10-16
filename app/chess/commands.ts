@@ -12,7 +12,7 @@
 // request that fails part way is taken back whole from a snapshot
 // (Game.saved/restore), so nothing it did is kept.
 import { getIndexFromAlgebraic } from "./chess.ts";
-import { Game, LEVELS, stateOf } from "./game.ts";
+import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
 import { lineOf, parseLine } from "./line.ts";
 import type { Params } from "./line.ts";
@@ -203,6 +203,29 @@ export const SPECS: readonly Spec[] = [
         refuse((e as Error).message);
       }
       return { ok: true, message: `opened a game of ${game.made.length} moves: ${game.turn()} to move`, output: game.made.length };
+    },
+  },
+  {
+    id: "view.dark", label: "Dark mode", params: [], optional: ["on"], journaled: true,
+    run: (game, p) => {
+      if (p.on !== undefined && !/^(0|1|on|off|true|false|yes|no)$/i.test(p.on.trim())) refuse(`${p.on} is not on or off (1 or 0)`);
+      game.dark = p.on === undefined ? !game.dark : /^(1|on|true|yes)$/i.test(p.on.trim());
+      return { ok: true, message: game.dark ? "dark mode" : "light mode", output: game.dark ? 1 : 0 };
+    },
+  },
+  {
+    id: "view.boardSize", label: "Board size", params: [], optional: ["px", "by"], journaled: true,
+    run: (game, p) => {
+      let px = game.boardSize;
+      if (p.px !== undefined) px = Number(p.px);
+      else if (p.by !== undefined) px = game.boardSize + Number(p.by);
+      if (!Number.isInteger(px)) refuse(`${p.px ?? p.by} is not a number of pixels`);
+      if (px < BOARD_SIZES.min || px > BOARD_SIZES.max) {
+        if (p.by === undefined) refuse(`a board is ${BOARD_SIZES.min} to ${BOARD_SIZES.max} pixels, not ${px}`);
+        px = Math.max(BOARD_SIZES.min, Math.min(BOARD_SIZES.max, px));
+      }
+      game.boardSize = px;
+      return { ok: true, message: `the board is ${px} pixels square`, output: px };
     },
   },
   {

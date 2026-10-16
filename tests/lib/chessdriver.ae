@@ -5,7 +5,7 @@
 // is at the bottom.
 
 exports(wait_ready, wait_moves, wait_fen, square_x, square_y, square_rgb, wait_square_rgb, piece_at, wait_piece, click_square,
-        drag_square, LIGHT, DARK, LAST_LIGHT, LAST_DARK, CHECK, SELECTED, TARGET)
+        drag_square, board_wh, grid_diff, LIGHT, DARK, LAST_LIGHT, LAST_DARK, CHECK, SELECTED, TARGET, DARK_LIGHT, DARK_DARK)
 
 import std.string
 import std.json
@@ -19,6 +19,8 @@ const LAST_DARK = 11182650    // #aaa23a
 const CHECK = 14700624        // #e05050
 const SELECTED = 8369109      // #7fb3d5
 const TARGET = 3833156        // #3a7d44
+const DARK_LIGHT = 10135728   // #9aa8b0, the dark look's light square
+const DARK_DARK = 5926522     // #5a6e7a, and its dark square
 
 // The page is up: its title text is shown. 1 when it is, 0 after the wait.
 wait_ready() -> int { return b.wait_for_text("Chess") }
@@ -125,4 +127,52 @@ drag_square(from: string, to: string, flipped: int) {
         k = k + 1
     }
     b.vg_release(x1, y1)
+}
+
+// The board's frame (the scene's first node) in canvas pixels: (w, h).
+board_wh() -> (int, int) {
+    v, jerr = json.parse(b.vg_nodes())
+    if jerr != "" || v == null { return 0, 0 }
+    if json.json_array_size(v) == 0 { return 0, 0 }
+    node = json.json_array_get_raw(v, 0)
+    w = json.json_get_number(json.json_object_get_raw(node, "w"))
+    h = json.json_get_number(json.json_object_get_raw(node, "h"))
+    json.json_free(v)
+    return w as int, h as int
+}
+
+// How many of two pixel grids' entries (b.vg_grid's AARRGGBB lines) differ
+// by more than `tol` on any channel, alpha included; a grid of another
+// length differs in all.
+grid_diff(got: string, want: string, tol: int) -> int {
+    if string.length(got) != string.length(want) { return 100000 }
+    n = 0
+    i = 0
+    total = string.length(got)
+    while i + 8 <= total {
+        k = 0
+        same = 1
+        while k < 8 {
+            if near_(hex2_(got, i + k), hex2_(want, i + k), tol) == 0 { same = 0 }
+            k = k + 2
+        }
+        if same == 0 { n = n + 1 }
+        i = i + 9
+    }
+    return n
+}
+
+// The byte two hex digits at `at` stand for (upper or lower case).
+hex2_(s: string, at: int) -> int {
+    hi = string.index_of("0123456789ABCDEF", string.to_upper(string.substring(s, at, at + 1)))
+    lo = string.index_of("0123456789ABCDEF", string.to_upper(string.substring(s, at + 1, at + 2)))
+    return hi * 16 + lo
+}
+
+// Two 0-255 channels (the low bytes of a and b) within `tol` of each other.
+near_(a: int, b: int, tol: int) -> int {
+    d = (a & 255) - (b & 255)
+    if d < 0 { d = 0 - d }
+    if d <= tol { return 1 }
+    return 0
 }

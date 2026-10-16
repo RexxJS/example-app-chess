@@ -17,6 +17,7 @@ export const VIEW = 88;
 export const MARGIN = 4;
 export const SQUARE = 10;
 
+/** The board's colours in the light look; DARK_COLOURS in the dark. */
 export const COLOURS = {
   light: "#f0d9b5",
   dark: "#b58863",
@@ -30,6 +31,21 @@ export const COLOURS = {
   piece: "#111111",
 } as const;
 
+export const DARK_COLOURS: { readonly [K in keyof typeof COLOURS]: string } = {
+  light: "#9aa8b0",
+  dark: "#5a6e7a",
+  lastLight: "#b5b86a",
+  lastDark: "#8a8c48",
+  check: "#c04040",
+  selected: "#5f8fb5",
+  target: "#2a5d34",
+  frame: "#202428",
+  coordinate: "#c8ccd0",
+  piece: "#0a0a0a",
+};
+
+const paletteOf = (s: Shown) => (s.dark ? DARK_COLOURS : COLOURS);
+
 /** The board square (0-63) shown at column c, row r from the top left. */
 export function squareAt(c: number, r: number, flipped: boolean): number {
   return flipped ? getIndex(r, 7 - c) : getIndex(7 - r, c);
@@ -42,18 +58,37 @@ export function glyphOf(letter: string): string {
 }
 
 export function squareFill(s: Shown, index: number): string {
+  const c = paletteOf(s);
   const light = isLight(Math.floor(index / 8), index % 8);
-  if (index === s.check) return COLOURS.check;
-  if (index === s.selected) return COLOURS.selected;
-  if (index === s.lastFrom || index === s.lastTo) return light ? COLOURS.lastLight : COLOURS.lastDark;
-  return light ? COLOURS.light : COLOURS.dark;
+  if (index === s.check) return c.check;
+  if (index === s.selected) return c.selected;
+  if (index === s.lastFrom || index === s.lastTo) return light ? c.lastLight : c.lastDark;
+  return light ? c.light : c.dark;
 }
 
-/** The board scene; its handle. */
-export function board(v: ChessView): number {
+/**
+ * The board, in a column of its own: drawn at the game's board size
+ * (view.boardSize), and drawn again when the size changes. The viewBox
+ * fits the canvas uniformly, centred, so the board stays square however
+ * wide the window makes it.
+ */
+export function boardPanel(v: ChessView): void {
+  let size = v.cmds.game.boardSize;
+  const column = ui.vstack(() => { scene(v, size); });
+  v.watch((s) => {
+    if (s.boardSize === size) return;
+    size = s.boardSize;
+    ui.clear(column);
+    ui.into(column, () => { scene(v, size); });
+    print(`chess: the board is ${size} pixels`);
+  });
+}
+
+/** The board scene at `px` pixels square; its handle. */
+function scene(v: ChessView, px: number): number {
   const shown = () => v.shown.value;
-  return vg.scene(`0 0 ${VIEW} ${VIEW}`, 480, 480, () => {
-    vg.rect(0, 0, VIEW, VIEW, () => vg.fill(COLOURS.frame));
+  return vg.scene(`0 0 ${VIEW} ${VIEW}`, px, px, () => {
+    vg.rect(0, 0, VIEW, VIEW, () => vg.bind_fill(() => paletteOf(shown()).frame));
     for (let r = 0; r < 8; ++r) {
       for (let c = 0; c < 8; ++c) {
         const x = MARGIN + c * SQUARE, y = MARGIN + r * SQUARE;
@@ -64,7 +99,7 @@ export function board(v: ChessView): number {
         });
         // A legal target of the piece picked: a dot in the square.
         vg.circle(x + SQUARE / 2, y + SQUARE / 2, 1.6, () => {
-          vg.fill(COLOURS.target);
+          vg.bind_fill(() => paletteOf(shown()).target);
           vg.visible_when(() => shown().targets.includes(at()));
           vg.on_click(() => v.clickSquare(at()));
         });
@@ -88,11 +123,11 @@ export function board(v: ChessView): number {
     // The files along the bottom and the ranks down the left, as the flip has them.
     for (let i = 0; i < 8; ++i) {
       vg.text_anchored(MARGIN + i * SQUARE + SQUARE / 2, VIEW - 0.8, 3, "middle", "", () => {
-        vg.fill(COLOURS.coordinate);
+        vg.bind_fill(() => paletteOf(shown()).coordinate);
         vg.bind_text(() => FILE_CHARACTERS[shown().flipped ? 7 - i : i]);
       });
       vg.text_anchored(MARGIN / 2, MARGIN + i * SQUARE + SQUARE / 2 + 1, 3, "middle", "", () => {
-        vg.fill(COLOURS.coordinate);
+        vg.bind_fill(() => paletteOf(shown()).coordinate);
         vg.bind_text(() => RANK_CHARACTERS[shown().flipped ? i : 7 - i]);
       });
     }

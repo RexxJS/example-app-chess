@@ -11,33 +11,41 @@
 // is the ui: each panel reads the view's states and runs commands, and
 // nothing else. This page only says which panels, in which order.
 import { ChessView } from "./chess/view/view.ts";
-import { board } from "./chess/view/board.ts";
+import { boardPanel } from "./chess/view/board.ts";
 import { promotionBar } from "./chess/view/promotion.ts";
 import { sidebar } from "./chess/view/sidebar.ts";
 import { menuBar, toolbar } from "./chess/view/toolbar.ts";
 import { scriptPanel } from "./chess/view/scriptpanel.ts";
+import { moveField } from "./chess/view/keyboard.ts";
+import { looks } from "./chess/view/looks.ts";
 
 const v = new ChessView();
 
 menuBar(v);
-ui.text("Chess");
-toolbar(v);
-ui.hstack(() => {
-  board(v);
-  sidebar(v);
+looks(v);
+// The page in a padded column: the window's edge is not the board's.
+ui.vstack(() => {
+  ui.margin(16, 16, 16, 16);
+  ui.text("Chess");
+  toolbar(v);
+  ui.hstack(() => {
+    boardPanel(v);
+    sidebar(v);
+  });
+  promotionBar(v);
+  moveField(v);
+  bind(ui.text(""), v.status);
+  bind(ui.text(""), computed(() => {
+    const g = v.game.value;
+    return g ? `${g.turn} to move: ${g.status}${g.result !== "*" ? ` (${g.result})` : ""}` : "";
+  }, v.game));
+  bind(ui.text_wrapped("", 720), computed(() => {
+    const g = v.game.value;
+    return g && g.sans.length ? `Moves: ${g.sans.join(" ")}` : "Moves: none yet";
+  }, v.game));
+  bind(ui.text(""), computed(() => `FEN: ${v.game.value?.fen ?? ""}`, v.game));
+  scriptPanel(v);
 });
-promotionBar(v);
-bind(ui.text(""), v.status);
-bind(ui.text(""), computed(() => {
-  const g = v.game.value;
-  return g ? `${g.turn} to move: ${g.status}${g.result !== "*" ? ` (${g.result})` : ""}` : "";
-}, v.game));
-bind(ui.text_wrapped("", 720), computed(() => {
-  const g = v.game.value;
-  return g && g.sans.length ? `Moves: ${g.sans.join(" ")}` : "Moves: none yet";
-}, v.game));
-bind(ui.text(""), computed(() => `FEN: ${v.game.value?.fen ?? ""}`, v.game));
-scriptPanel(v);
 v.refresh();
 
 // The control bus (an installed app started with --control-bus): another

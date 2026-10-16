@@ -110,6 +110,8 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   SETAISIDE: (exec, _g, side) => must(exec, "ai.side", { side: text(side) }).output,
   AIMOVE: (exec) => must(exec, "ai.move").output,
   FLIPBOARD: (exec) => must(exec, "board.flip").output,
+  BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : { px: text(px) }).output,
+  DARKMODE: (exec, _g, on) => must(exec, "view.dark", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,
 };
 
 type Fn = (...args: any[]) => unknown;

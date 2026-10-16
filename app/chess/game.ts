@@ -17,6 +17,9 @@ import { START_FEN, fromFen, parseMove, toFen, toSan } from "./parser.ts";
 export type Side = "white" | "black";
 export type AiSide = "white" | "black" | "both" | "none";
 
+/** The board's sizes on the page, in pixels: the smallest, the largest, and a step of Smaller or Larger. */
+export const BOARD_SIZES = { min: 240, max: 960, step: 80 } as const;
+
 /** The levels the computer player plays at (stage 4 of TODO.md): depth 1 to 4. */
 export const LEVELS = [1, 2, 3, 4];
 
@@ -66,6 +69,8 @@ export interface Snapshot {
   readonly aiLevel: number;
   readonly aiSide: AiSide;
   readonly flipped: boolean;
+  readonly dark?: boolean;
+  readonly boardSize?: number;
 }
 
 export class Game {
@@ -83,6 +88,10 @@ export class Game {
   aiLevel = 2;
   aiSide: AiSide = "none";
   flipped = false;
+  /** The page's dark look (view.dark); not part of a game file. */
+  dark = false;
+  /** The board's size on the page, in pixels (view.boardSize); not part of a game file. */
+  boardSize = 480;
   /** Set while a group is open: the step the moves made since fold into (its index in `steps`), or -1 before its first move. */
   #group: number | null = null;
 
@@ -376,6 +385,8 @@ export class Game {
     if (LEVELS.includes(Number(f.aiLevel))) g.aiLevel = Number(f.aiLevel);
     if (f.aiSide === "white" || f.aiSide === "black" || f.aiSide === "both" || f.aiSide === "none") g.aiSide = f.aiSide;
     g.flipped = f.flipped === true;
+    g.dark = this.dark;
+    g.boardSize = this.boardSize;
     this.restore(g.saved());
     // Read in: nothing to redo, nothing to undo past its own moves.
     this.redoSteps = [];
@@ -394,6 +405,8 @@ export class Game {
       aiLevel: this.aiLevel,
       aiSide: this.aiSide,
       flipped: this.flipped,
+      dark: this.dark,
+      boardSize: this.boardSize,
     };
   }
 
@@ -429,6 +442,8 @@ export class Game {
     this.aiLevel = s.aiLevel;
     this.aiSide = s.aiSide;
     this.flipped = s.flipped;
+    this.dark = s.dark === true;
+    if (typeof s.boardSize === "number") this.boardSize = s.boardSize;
     this.#group = group === null ? null : -1;
   }
 }
@@ -458,6 +473,8 @@ export interface State {
   readonly capturedByWhite: readonly string[];
   readonly capturedByBlack: readonly string[];
   readonly balance: number;
+  readonly dark: boolean;
+  readonly boardSize: number;
 }
 
 export function stateOf(game: Game): State {
@@ -470,7 +487,7 @@ export function stateOf(game: Game): State {
     canUndo: game.canUndo(), canRedo: game.canRedo(), startFen: game.startFen,
     aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
     future: game.future().map((m) => m.san), statusText: game.statusText(),
-    capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance,
+    capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance, dark: game.dark, boardSize: game.boardSize,
   };
 }
 
