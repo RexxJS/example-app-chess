@@ -46,6 +46,8 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
   UNDO: fn([], "Takes back the last move (or the moves one request made, as one)", "how many moves came back, 0 for none"),
   REDO: fn([], "Makes again the last move taken back", "how many moves went back on, 0 for none"),
   NEWGAME: fn([], "Starts a new game from the usual position; the settings stay", "\"OK\""),
+  NEWGAME960: fn([opt("n", "number", "the position's number, 0 to 959 (the standard numbering; 518 is the usual start); left out: one at random")], "Starts a new Chess960 game: the back rank shuffled as Chess960's rules have it, black's mirroring white's; castling puts king and rook where they go in chess (the king on g or c, the rook beside it), a castling move named by the king's square and its rook's, \"b1a1\", or O-O and O-O-O", "the start position's FEN, its castling rights in X-FEN"),
+  CHESS960NUMBER: fn([], "The Chess960 number of the position the game started from", "0 to 959 (518 for the usual start), -1 for a position that is none of them"),
   SETPOSITION: fn([p("fen", "fen")], "Sets up a position; the game starts from it", "the position's FEN, as the app writes it"),
   RESIGN: fn([opt("side", "side", "the side to move if left out")], "Resigns; the game is over", "the result, \"1-0\" or \"0-1\""),
   OFFERDRAW: fn([], "Offers a draw, which is agreed (no one declines yet); the game is over", "\"1/2-1/2\""),

@@ -16,6 +16,7 @@ import { START_FEN, fromFen, parseMove, toFen, toSan } from "./parser.ts";
 import { parsePgn, toPgn } from "./pgn.ts";
 import type { PgnKept } from "./pgn.ts";
 import { openingOf } from "./book.ts";
+import { fen960, number960 } from "./chess960.ts";
 
 export type Side = "white" | "black";
 export type AiSide = "white" | "black" | "both" | "none";
@@ -229,6 +230,16 @@ export class Game {
   /** The start position, nothing to undo or redo; the settings stay. */
   newGame(): void {
     this.setPosition(START_FEN);
+  }
+
+  /** A new Chess960 game (chess960.ts): start position n, 0 to 959 (518 is the usual one). */
+  newGame960(n: number): void {
+    this.setPosition(fen960(n));
+  }
+
+  /** The Chess960 number of the position the game started from, or -1 when it is none of them. */
+  chess960(): number {
+    return number960(this.startFen);
   }
 
   /** The game starts again from `fen` (which must be a position: fromFen says what is wrong with one that is not). */
@@ -593,6 +604,7 @@ export interface State {
   readonly boardFit: boolean;
   readonly opening: string;               // the opening's name (book.ts), or ""
   readonly book: boolean;                 // the computer plays from the book
+  readonly chess960: number;              // the Chess960 start it began from (chess960.ts), or -1
 }
 
 export function stateOf(game: Game): State {
@@ -606,7 +618,7 @@ export function stateOf(game: Game): State {
     aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
     future: game.future().map((m) => m.san), statusText: game.statusText(),
     capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance, dark: game.dark, boardSize: game.boardSize, boardFit: game.boardFit,
-    opening: openingOf(game), book: game.book,
+    opening: openingOf(game), book: game.book, chess960: game.chess960(),
   };
 }
 

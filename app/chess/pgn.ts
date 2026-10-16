@@ -7,7 +7,7 @@
 // after a move are held as the text that followed each move, and written
 // again after the same move when the game is written, so a game read and
 // written comes back with them, while its moves are those it had.
-import { START_FEN } from "./parser.ts";
+import { START_FEN, fromFen } from "./parser.ts";
 import type { Game } from "./game.ts";
 
 /** What a game read from PGN keeps besides its moves, to write again. */
@@ -154,7 +154,9 @@ export function toPgn(game: Game, date: string = today()): string {
     Round: read.get("Round") ?? "-", White: read.get("White") ?? "?", Black: read.get("Black") ?? "?", Result: game.result(),
   };
   const lines = ROSTER.map((k) => `[${k} ${quote(roster[k])}]`);
-  for (const [k, v] of kept ? kept.tags : []) if (!ROSTER.includes(k) && k !== "SetUp" && k !== "FEN") lines.push(`[${k} ${quote(v)}]`);
+  for (const [k, v] of kept ? kept.tags : []) if (!ROSTER.includes(k) && k !== "SetUp" && k !== "FEN" && k !== "Variant") lines.push(`[${k} ${quote(v)}]`);
+  // A Chess960 start says so (the Variant tag readers of Chess960 PGN look for), its FEN in X-FEN.
+  if (fromFen(game.startFen).chess960) lines.push(`[Variant "Chess960"]`);
   if (game.startFen !== START_FEN) lines.push(`[SetUp "1"]`, `[FEN ${quote(game.startFen)}]`);
   // The kept notes belong to the moves while the game's moves are the ones read.
   const sans = game.sanList();

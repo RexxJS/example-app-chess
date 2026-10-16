@@ -1,0 +1,50 @@
+// spec_app_chess_960.ae — Chess960 (app/chess/chess960.ts, TODO.md 6.5):
+// the Chess960 button starts a game from one of the 960 at random;
+// NEWGAME960(n) over the control bus sets up the numbered one, named
+// beside the board; castling by clicks, the king on to its own rook,
+// ends with king and rook where they go in chess.
+//   ./run-tests.sh spec_app_chess_960
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "Chess960") {
+        spec.it("the Chess960 button: a start position at random") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            b.click("Chess960")
+            spec.assert_true(c.wait_text_starting("Chess960 position ", 3), "said")
+        }
+        spec.it("NEWGAME960(0) over the bus: its back rank on the board, its number beside it") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, got = command_(key, "NEWGAME960(0)")
+            spec.assert_contains(got, "\"result\":\"bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1\"", "its FEN")
+            spec.assert_true(b.wait_for_text("Chess960: start position 0"), "named beside the board")
+            spec.assert_true(c.wait_piece("a1", 0, "♗"), "a bishop on a1")
+            spec.assert_true(c.wait_piece("g1", 0, "♔"), "the king on g1")
+            spec.assert_true(c.wait_piece("h8", 0, "♜"), "black's mirrored: a rook on h8")
+        }
+        spec.it("castling by clicks: the king on to its rook") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "SETPOSITION(\"rk5r/8/8/8/8/8/8/RK5R w KQkq - 0 1\")")
+            spec.assert_true(c.wait_piece("b1", 0, "♔"), "the king on b1")
+            c.click_square("b1", 0)
+            c.click_square("h1", 0)
+            spec.assert_true(c.wait_moves("O-O"), "O-O")
+            spec.assert_true(c.wait_piece("g1", 0, "♔"), "the king on g1")
+            spec.assert_true(c.wait_piece("f1", 0, "♖"), "the rook on f1")
+            spec.assert_true(c.wait_piece("a1", 0, "♖"), "the other rook stays")
+            c.click_square("b8", 0)
+            c.click_square("a8", 0)
+            spec.assert_true(c.wait_moves("O-O O-O-O"), "black O-O-O, the king on to the a-rook")
+            spec.assert_true(c.wait_piece("c8", 0, "♚"), "the king on c8")
+            spec.assert_true(c.wait_piece("d8", 0, "♜"), "the rook on d8")
+        }
+    }
+    return spec.run_summary(fw)
+}

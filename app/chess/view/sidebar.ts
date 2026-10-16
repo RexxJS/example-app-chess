@@ -32,6 +32,7 @@ export function sidebar(v: ChessView): number {
     // The opening's name (book.ts), once the game has reached a named position.
     bind(ui.text(""), computed(() => {
       const g = v.game.value;
+      if (g && g.chess960 >= 0 && g.chess960 !== 518) return `Chess960: start position ${g.chess960}`;
       return g && g.opening ? `Opening: ${g.opening}` : "Opening: none yet";
     }, v.game));
     bind(ui.text(""), computed(() => {

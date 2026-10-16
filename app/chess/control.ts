@@ -84,6 +84,8 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   UNDO: (exec) => must(exec, "game.undo").output,
   REDO: (exec) => must(exec, "game.redo").output,
   NEWGAME: (exec) => (must(exec, "game.new"), "OK"),
+  NEWGAME960: (exec, _g, n) => must(exec, "game.new960", n === undefined || text(n) === "" ? {} : { n: text(n) }).output,
+  CHESS960NUMBER: (exec) => state(exec).chess960,
   SETPOSITION: (exec, _g, fen) => must(exec, "game.setPosition", { fen: text(fen) }).output,
   RESIGN: (exec, _g, side) => must(exec, "game.resign", side === undefined || text(side) === "" ? {} : { side: text(side) }).output,
   OFFERDRAW: (exec) => must(exec, "game.offerDraw").output,

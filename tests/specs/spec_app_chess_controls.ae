@@ -69,7 +69,7 @@ main() {
     spec.describe(fw, "the menu bar") {
         spec.it("has the commands by menu, and an item runs its command") callback {
             body = uidriver.menus_body()
-            spec.assert_contains(body, "\"New game\",\"Open...\",\"Save...\",\"Save as PGN...\",\"Resign\",\"Offer draw\"", "Game")
+            spec.assert_contains(body, "\"New game\",\"New Chess960 game\",\"Open...\",\"Save...\",\"Save as PGN...\",\"Resign\",\"Offer draw\"", "Game")
             spec.assert_contains(body, "\"Undo\",\"Redo\"", "Edit")
             spec.assert_contains(body, "\"Flip board\"", "Board")
             spec.assert_contains(body, "\"Play as white\",\"Play as black\",\"Play both sides\",\"Computer plays both\",\"Level 1\"", "Computer")

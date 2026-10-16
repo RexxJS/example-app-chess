@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-55 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+57 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -34,6 +34,8 @@ the bus and the MCP server give back.
 | [`UNDO()`](#undo) | Takes back the last move (or the moves one request made, as one) | how many moves came back, 0 for none |
 | [`REDO()`](#redo) | Makes again the last move taken back | how many moves went back on, 0 for none |
 | [`NEWGAME()`](#newgame) | Starts a new game from the usual position; the settings stay | "OK" |
+| [`NEWGAME960([n])`](#newgame960) | Starts a new Chess960 game: the back rank shuffled as Chess960's rules have it, black's mirroring white's; castling puts king and rook where they go in chess (the king on g or c, the rook beside it), a castling move named by the king's square and its rook's, "b1a1", or O-O and O-O-O | the start position's FEN, its castling rights in X-FEN |
+| [`CHESS960NUMBER()`](#chess960number) | The Chess960 number of the position the game started from | 0 to 959 (518 for the usual start), -1 for a position that is none of them |
 | [`SETPOSITION(fen)`](#setposition) | Sets up a position; the game starts from it | the position's FEN, as the app writes it |
 | [`RESIGN([side])`](#resign) | Resigns; the game is over | the result, "1-0" or "0-1" |
 | [`OFFERDRAW()`](#offerdraw) | Offers a draw, which is agreed (no one declines yet); the game is over | "1/2-1/2" |
@@ -141,6 +143,26 @@ NEWGAME()
 ```
 
 Starts a new game from the usual position; the settings stay. Gives "OK".
+
+### NEWGAME960
+
+```rexx
+NEWGAME960([n])
+```
+
+Starts a new Chess960 game: the back rank shuffled as Chess960's rules have it, black's mirroring white's; castling puts king and rook where they go in chess (the king on g or c, the rook beside it), a castling move named by the king's square and its rook's, "b1a1", or O-O and O-O-O. Gives the start position's FEN, its castling rights in X-FEN.
+
+| Parameter | Kind | |
+|---|---|---|
+| `n` | number, optional | the position's number, 0 to 959 (the standard numbering; 518 is the usual start); left out: one at random |
+
+### CHESS960NUMBER
+
+```rexx
+CHESS960NUMBER()
+```
+
+The Chess960 number of the position the game started from. Gives 0 to 959 (518 for the usual start), -1 for a position that is none of them.
 
 ### SETPOSITION
 

@@ -54,7 +54,7 @@ eq("what is wrong with a FEN is said", [
   "FEN: no piece 'X' in rank 1",
   "FEN: one king each, not 0 white and 1 black",
   "FEN: side to move is w or b, not 'x'",
-  "FEN: castling rights are KQkq or -, not 'KQxq'",
+  "FEN: castling rights are KQkq (or a rook's file, \"HAha\", for Chess960) or -, not 'KQxq'",
   "FEN: en passant square 'e4' is not on rank 6",
   "FEN: the clocks are numbers, not 'x' and '1'",
   "FEN: 2 to 6 fields, not 1",

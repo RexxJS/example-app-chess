@@ -56,6 +56,7 @@ export function menuBar(v: ChessView): void {
   if (typeof ui.menu !== "function") return;
   ui.menu("Game", () => {
     ui.menu_item("New game", () => v.run("game.new"));
+    ui.menu_item("New Chess960 game", () => v.run("game.new960"));
     if (typeof documents !== "undefined") {
       ui.menu_item("Open...", () => openGame(v));
       ui.menu_item("Save...", () => saveGame(v));

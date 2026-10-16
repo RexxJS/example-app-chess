@@ -140,6 +140,19 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.new960", label: "New Chess960 game", params: [], optional: ["n"], journaled: true,
+    // Chess960 start position n (0 to 959, the standard numbering: chess960.ts); left out, one at random.
+    run: (game, p) => {
+      const n = p.n === undefined || p.n.trim() === "" || p.n.trim().toLowerCase() === "random" ? Math.floor(Math.random() * 960) : Number(p.n);
+      try {
+        game.newGame960(n);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `Chess960 position ${n}: white to move`, output: game.fen() };
+    },
+  },
+  {
     id: "game.move", label: "Move", params: [], optional: ["from", "to", "promotion", "san", "move"], journaled: true,
     run: (game, p) => {
       const move = moveOf(game, p);
@@ -463,7 +476,7 @@ export const SPECS: readonly Spec[] = [
 
 const BY_ID = new Map(SPECS.map((s) => [s.id, s]));
 // The commands that start a game again, and the clocks with it.
-const RESTARTS = ["game.new", "game.setPosition", "game.import", "game.importPgn", "game.open", "puzzle.load"];
+const RESTARTS = ["game.new", "game.new960", "game.setPosition", "game.import", "game.importPgn", "game.open", "puzzle.load"];
 
 export class Commands {
   readonly game: Game;

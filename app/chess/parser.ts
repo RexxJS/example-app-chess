@@ -56,7 +56,7 @@ export function parseOneMove(position: Position, text: string): Move[] | null {
     const promotedPiece = m[7]?.toUpperCase();
     // "g1f3": both squares whole and no piece letter is coordinate notation, of any piece.
     const coordinate = piece === undefined && fromFile !== undefined && fromRank !== undefined;
-    return legalMoves.filter((move) => {
+    const found = legalMoves.filter((move) => {
       if (piece !== undefined && PIECE_ALGEBRAIC_NAMES[move.getPiece()] !== piece) return false;
       if (piece === undefined && !coordinate && move.getPiece() !== Piece.PAWN) return false;
       if (fromFile !== undefined && FILE_CHARACTERS[getFile(move.getFrom())] !== fromFile) return false;
@@ -68,6 +68,12 @@ export function parseOneMove(position: Position, text: string): Move[] | null {
       if (promotedPiece === undefined && move.isPromotion() && move.getPromotedPiece() !== Piece.QUEEN) return false; // "e8" alone is the queen
       return true;
     });
+    // Chess960: the king's castling move named by where the king ends ("b1g1"), as well as by its rook's square.
+    if (!found.length && coordinate && position.chess960 && toRank !== undefined) {
+      const from = FILE_CHARACTERS.indexOf(fromFile) + 8 * RANK_CHARACTERS.indexOf(fromRank), to = FILE_CHARACTERS.indexOf(toFile) + 8 * RANK_CHARACTERS.indexOf(toRank);
+      return legalMoves.filter((move) => move.isCastle() && move.getFrom() === from && getFile(to) === (move.getKind() === Kind.KING_CASTLE ? 6 : 2) && getRank(to) === getRank(from));
+    }
+    return found;
   }
 
   return null;
@@ -130,6 +136,59 @@ export function toSan(position: Position, move: Move): string {
   return san;
 }
 
+/**
+ * The castling rights as FEN has them: KQkq, or (Chess960, X-FEN) the
+ * rook's file where the rook is not the outermost on its side: "HAha"
+ * reads "KQkq" when those rooks are the outermost.
+ */
+function castlingText(position: Position): string {
+  let out = "";
+  for (const color of [PieceColor.WHITE, PieceColor.BLACK]) {
+    for (const kingSide of [true, false]) {
+      if (!position.hasCastlingRight(color as Color, kingSide)) continue;
+      const rook = position.rookSquare(color as Color, kingSide), base = color === PieceColor.WHITE ? 0 : 56;
+      let outermost = true;
+      for (let f = getFile(rook) + (kingSide ? 1 : -1); f >= 0 && f <= 7; f += kingSide ? 1 : -1) {
+        if (position.getPieceAtOrNull(base + f) === Piece.ROOK && position.getColorAtOrNull(base + f) === color) outermost = false;
+      }
+      const letter = outermost ? (kingSide ? "K" : "Q") : FILE_CHARACTERS[getFile(rook)].toUpperCase();
+      out += color === PieceColor.WHITE ? letter : letter.toLowerCase();
+    }
+  }
+  return out;
+}
+
+/**
+ * Reads FEN's castling field into the position: KQkq (the outermost rook
+ * on that side of the king), or X-FEN and Shredder-FEN's files ("HAha",
+ * "Bb"). A right with no rook of its side there is dropped. A king or a
+ * castling rook off the usual squares makes the position Chess960.
+ */
+function readCastling(p: Position, castling: string): void {
+  p.castlingRights = 0;
+  p.castleRooks = [7, 63, 0, 56];
+  let odd = false;
+  for (const ch of castling === "-" ? "" : castling) {
+    const color = ch === ch.toUpperCase() ? PieceColor.WHITE : PieceColor.BLACK;
+    const base = color === PieceColor.WHITE ? 0 : 56;
+    const king = p.getKingPosition(color as Color);
+    if (king < base || king > base + 7) continue;
+    const isRook = (sq: number) => p.getPieceAtOrNull(sq) === Piece.ROOK && p.getColorAtOrNull(sq) === color;
+    let rook = -1;
+    const c = ch.toUpperCase();
+    if (c === "K") for (let f = 7; f > getFile(king) && rook < 0; --f) { if (isRook(base + f)) rook = base + f; }
+    else if (c === "Q") for (let f = 0; f < getFile(king) && rook < 0; ++f) { if (isRook(base + f)) rook = base + f; }
+    else if (isRook(base + FILE_CHARACTERS.indexOf(c.toLowerCase()))) rook = base + FILE_CHARACTERS.indexOf(c.toLowerCase());
+    if (rook < 0 || rook === king) continue;
+    const kingSide = getFile(rook) > getFile(king);
+    const index = (color as number) + (kingSide ? 0 : 2);
+    p.castlingRights |= 1 << index;
+    p.castleRooks[index] = rook;
+    if (getFile(king) !== 4 || getFile(rook) !== (kingSide ? 7 : 0)) odd = true;
+  }
+  p.chess960 = odd;
+}
+
 /** The position as FEN. */
 export function toFen(position: Position): string {
   const ranks: string[] = [];
@@ -146,8 +205,7 @@ export function toFen(position: Position): string {
     if (empty) line += empty;
     ranks.push(line);
   }
-  const rights = position.castlingRights;
-  const castling = ((rights & 1) ? "K" : "") + ((rights & 4) ? "Q" : "") + ((rights & 2) ? "k" : "") + ((rights & 8) ? "q" : "");
+  const castling = castlingText(position);
   const ep = position.enPassantSquare;
   const epText = ep < 0 ? "-" : getAlgebraicFromIndex(position.turn === PieceColor.WHITE ? ep + 8 : ep - 8);
   return `${ranks.join("/")} ${position.turn === PieceColor.WHITE ? "w" : "b"} ${castling || "-"} ${epText} ${position.halfmoveClock} ${position.fullmoveNumber}`;
@@ -180,8 +238,8 @@ export function fromFen(fen: string): Position {
   if (kings[0] !== 1 || kings[1] !== 1) throw new Error(`FEN: one king each, not ${kings[0]} white and ${kings[1]} black`);
   if (turn !== "w" && turn !== "b") throw new Error(`FEN: side to move is w or b, not '${turn}'`);
   p.turn = turn === "w" ? PieceColor.WHITE : PieceColor.BLACK;
-  if (!/^(-|K?Q?k?q?)$/.test(castling) || castling === "") throw new Error(`FEN: castling rights are KQkq or -, not '${castling}'`);
-  p.castlingRights = (castling.includes("K") ? 1 : 0) | (castling.includes("k") ? 2 : 0) | (castling.includes("Q") ? 4 : 0) | (castling.includes("q") ? 8 : 0);
+  if (!/^(-|[KQA-H]{0,2}[kqa-h]{0,2})$/.test(castling) || castling === "") throw new Error(`FEN: castling rights are KQkq (or a rook's file, "HAha", for Chess960) or -, not '${castling}'`);
+  readCastling(p, castling);
   if (ep !== "-") {
     const behind = getIndexFromAlgebraic(ep);
     const rank = behind < 0 ? -1 : getRank(behind);

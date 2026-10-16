@@ -1,4 +1,5 @@
-// The puzzles, below the board (puzzle.ts, TODO.md 6.4): the puzzle under
+// Below the board: Chess960 (a new game from one of its start positions,
+// at random: TODO.md 6.5), and the puzzles (puzzle.ts, TODO.md 6.4): the puzzle under
 // way, its goal and how it stands; Puzzle (the next of the set), Open
 // puzzles (a set from a file the person picks, through documents).
 import type { ChessView } from "./view.ts";
@@ -15,6 +16,8 @@ export function puzzleLine(st: PuzzleState | null): string {
 
 export function puzzlePanel(v: ChessView): void {
   ui.hstack(() => {
+    // A Chess960 game (chess960.ts), its start position at random.
+    ui.btn("Chess960", () => v.run("game.new960"));
     ui.btn("Puzzle", () => {
       const st = v.cmds.puzzles.state();
       const next = st ? (st.index % v.cmds.puzzles.set.length) + 1 : 1;

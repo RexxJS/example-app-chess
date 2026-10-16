@@ -41,7 +41,8 @@ app/
                     analysis.ts (a position's value and line, a hint),
                     book.ts (the opening book: names, book moves),
                     clock.ts (clocks: a time control, the flag),
-                    puzzle.ts (puzzles: mate in n, checked)
+                    puzzle.ts (puzzles: mate in n, checked),
+                    chess960.ts (Chess960's start positions)
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
                     click or drag to move), promotion.ts, sidebar.ts

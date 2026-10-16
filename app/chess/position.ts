@@ -10,7 +10,12 @@
 // back); threefold repetition counts the position now as one of the three
 // (the old needed three earlier ones, so fired on the fourth); a
 // fullmoveNumber for FEN; Status.CHECK; and empty() with putPiece() to
-// set a position up (the parser's FEN uses them).
+// set a position up (the parser's FEN uses them). Chess960 (TODO.md 6.5):
+// the castling rooks' squares are the position's own (castleRooks), and
+// in a Chess960 position a castling move is the king's move on to its
+// own rook (from the king's square to the rook's), ending, as in chess,
+// with the king on the g- or c-file and the rook beside it on f or d;
+// a position with the usual king and rooks keeps the usual moves.
 import { FILES, LAST_FILE, LAST_RANK, Piece, PieceColor, getOtherPieceColor } from "./chess.ts";
 import { Bitboard } from "./bitboard.ts";
 import { Zobrist } from "./zobrist.ts";
@@ -99,6 +104,10 @@ export class Position {
   irreversibleHistory: number[];
   /** The hash before each move made. */
   hashHistory: Zobrist[];
+  /** The square of each castling rook, by castling index (white king side, black king side, white queen side, black queen side). */
+  castleRooks: number[] = [...ROOK_INDICES];
+  /** A Chess960 position: castling moves are the king on to its rook (generateMoves), and the castling rooks are castleRooks. */
+  chess960 = false;
 
   /** The start position. */
   constructor() {
@@ -285,11 +294,17 @@ export class Position {
     this.hashKey.updateCastlingRights(this.castlingRights);
   }
 
+  /** The square a castling rook stands on (its home, for the castling right). */
+  rookSquare(color: PieceColor, kingSide: boolean): number {
+    return this.castleRooks[getCastlingIndex(color, kingSide)];
+  }
+
   /** The right is there and the squares between are empty; with onlyLegal, the king's path is not attacked either. */
   canCastle(color: PieceColor, kingSide: boolean, onlyLegal: boolean): boolean {
     if (!this.hasCastlingRight(color, kingSide)) {
       return false;
     }
+    if (this.chess960) return this.canCastle960(color, kingSide, onlyLegal);
     const direction = kingSide ? 1 : -1;
     const kingPosition = (color === PieceColor.WHITE) ? 4 : 60;
     const occupied = this.getOccupiedBitboard();
@@ -301,6 +316,34 @@ export class Position {
     }
     if (onlyLegal && !this.isCastlingLegal(color, kingSide)) {
       return false;
+    }
+    return true;
+  }
+
+  /**
+   * Chess960: the king goes to the g- (king side) or c-file, the rook to f
+   * or d; every square either passes over or lands on is empty but for
+   * the two of them, and (onlyLegal) no square of the king's way, its own
+   * and where it ends included, is attacked.
+   */
+  canCastle960(color: PieceColor, kingSide: boolean, onlyLegal: boolean): boolean {
+    const base = color === PieceColor.WHITE ? 0 : 56;
+    const king = this.getKingPosition(color), rook = this.rookSquare(color, kingSide);
+    if (this.getPieceAtOrNull(rook) !== Piece.ROOK || this.getColorAtOrNull(rook) !== color || king < base || king > base + 7) return false;
+    const kingTo = base + (kingSide ? 6 : 2), rookTo = base + (kingSide ? 5 : 3);
+    const occupied = this.getOccupiedBitboard();
+    const lo = Math.min(king, kingTo, rook, rookTo), hi = Math.max(king, kingTo, rook, rookTo);
+    for (let sq = lo; sq <= hi; ++sq) {
+      if (sq === king || sq === rook) continue;
+      if (occupied.isSet(sq)) return false;
+    }
+    if (onlyLegal) {
+      const other = getOtherPieceColor(color);
+      const step = kingTo >= king ? 1 : -1;
+      for (let sq = king; ; sq += step) {
+        if (this.isAttacked(other, sq)) return false;
+        if (sq === kingTo) break;
+      }
     }
     return true;
   }
@@ -484,11 +527,12 @@ export class Position {
     addNormalMoves(kingPosition, Bitboard.KING_MOVEMENTS[kingPosition].dup().and(mask), Piece.KING);
 
     if (!onlyCaptures) {
+      // Chess960: the king's move on to its rook.
       if (this.canCastle(turnColor, true, true)) {
-        moves.push(new Move(kingPosition, kingPosition + 2, Kind.KING_CASTLE, Piece.KING, null));
+        moves.push(new Move(kingPosition, this.chess960 ? this.rookSquare(turnColor, true) : kingPosition + 2, Kind.KING_CASTLE, Piece.KING, null));
       }
       if (this.canCastle(turnColor, false, true)) {
-        moves.push(new Move(kingPosition, kingPosition - 2, Kind.QUEEN_CASTLE, Piece.KING, null));
+        moves.push(new Move(kingPosition, this.chess960 ? this.rookSquare(turnColor, false) : kingPosition - 2, Kind.QUEEN_CASTLE, Piece.KING, null));
       }
     }
 
@@ -521,13 +565,13 @@ export class Position {
 
   /** Moves the castling rook only (the king moves as any piece). */
   castleRook(color: PieceColor, kingSide: boolean): void {
-    const from = getCastlingRookSquare(color, kingSide);
+    const from = this.rookSquare(color, kingSide);
     const to = from + (kingSide ? -2 : 3);
     this.movePiece(Piece.ROOK, color, from, to);
   }
 
   unCastleRook(color: PieceColor, kingSide: boolean): void {
-    const to = getCastlingRookSquare(color, kingSide);
+    const to = this.rookSquare(color, kingSide);
     const from = to + (kingSide ? -2 : 3);
     this.movePiece(Piece.ROOK, color, from, to);
   }
@@ -540,8 +584,24 @@ export class Position {
     this.hashKey.updatePieceColorSquare(pieceNew, color, index);
   }
 
+  // A Chess960 castling, made (back: taken back): king and rook off their
+  // squares, then on to theirs (the squares may be each other's).
+  castle960(move: Move, back: boolean): void {
+    const color = this.getTurnColor(), kingSide = move.getKind() === Kind.KING_CASTLE;
+    const base = color === PieceColor.WHITE ? 0 : 56;
+    const king = move.getFrom(), rook = move.getTo(), kingTo = base + (kingSide ? 6 : 2), rookTo = base + (kingSide ? 5 : 3);
+    this.capturePiece(Piece.KING, color, back ? kingTo : king);
+    this.capturePiece(Piece.ROOK, color, back ? rookTo : rook);
+    this.unCapturePiece(Piece.KING, color, back ? king : kingTo);
+    this.unCapturePiece(Piece.ROOK, color, back ? rook : rookTo);
+  }
+
   /** Changes the pieces for a move (not the turn, rights or clocks). */
   updatePieces(move: Move): void {
+    if (this.chess960 && move.isCastle()) {
+      this.castle960(move, false);
+      return;
+    }
     if (move.isCapture()) {
       this.capturePiece(move.getCapturedPiece(), getOtherPieceColor(this.getTurnColor()), move.getCaptureSquare());
     }
@@ -555,6 +615,10 @@ export class Position {
   }
 
   revertPieces(move: Move): void {
+    if (this.chess960 && move.isCastle()) {
+      this.castle960(move, true);
+      return;
+    }
     if (move.isPromotion()) {
       this.promotePiece(move.getPromotedPiece(), Piece.PAWN, this.getTurnColor(), move.getTo());
     }
@@ -605,9 +669,9 @@ export class Position {
       this.clearCastlingRight(turnColor, true);
       this.clearCastlingRight(turnColor, false);
     } else if (move.getPiece() === Piece.ROOK) {
-      if (move.getFrom() === getCastlingRookSquare(turnColor, true)) {
+      if (move.getFrom() === this.rookSquare(turnColor, true)) {
         this.clearCastlingRight(turnColor, true);
-      } else if (move.getFrom() === getCastlingRookSquare(turnColor, false)) {
+      } else if (move.getFrom() === this.rookSquare(turnColor, false)) {
         this.clearCastlingRight(turnColor, false);
       }
     }
@@ -615,9 +679,9 @@ export class Position {
     const otherColor = getOtherPieceColor(turnColor);
 
     if (move.isCapture() && move.getCapturedPiece() === Piece.ROOK) {
-      if (move.getCaptureSquare() === getCastlingRookSquare(otherColor, true)) {
+      if (move.getCaptureSquare() === this.rookSquare(otherColor, true)) {
         this.clearCastlingRight(otherColor, true);
-      } else if (move.getCaptureSquare() === getCastlingRookSquare(otherColor, false)) {
+      } else if (move.getCaptureSquare() === this.rookSquare(otherColor, false)) {
         this.clearCastlingRight(otherColor, false);
       }
     }
