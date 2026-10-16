@@ -425,8 +425,7 @@ claude mcp add chess -- node /path/to/chaess/mcp/chess-mcp.js
 ## Examples
 
 `rexx/reference-examples.rexx`, as it is; `spec_app_chess_rexx` runs it against the app. Inside the app, drop the
-`REQUIRE` line. RexxJS wants `IF ... THEN` and its statement on one line
-([asks/rexxjs-if-then-next-line.md](asks/rexxjs-if-then-next-line.md)).
+`REQUIRE` line.
 
 ```rexx
 -- reference-examples.rexx: CHESS_COMMANDS.md's examples, included there as
@@ -445,8 +444,10 @@ SAY "Status: " RESULT
 
 /* A move tried, and refused */
 ADDRESS CHESS "move from=e7 to=e4"
-IF RC = 0 THEN SAY "legal"
-ELSE SAY "illegal:" ERRORTEXT
+IF RC = 0 THEN
+  SAY "legal"
+ELSE
+  SAY "illegal:" ERRORTEXT
 
 /* The functions: undo and redo, the position */
 ADDRESS CHESS 'UNDO()'

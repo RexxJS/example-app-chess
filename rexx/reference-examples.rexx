@@ -14,8 +14,10 @@ SAY "Status: " RESULT
 
 /* A move tried, and refused */
 ADDRESS CHESS "move from=e7 to=e4"
-IF RC = 0 THEN SAY "legal"
-ELSE SAY "illegal:" ERRORTEXT
+IF RC = 0 THEN
+  SAY "legal"
+ELSE
+  SAY "illegal:" ERRORTEXT
 
 /* The functions: undo and redo, the position */
 ADDRESS CHESS 'UNDO()'

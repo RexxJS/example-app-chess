@@ -16,7 +16,7 @@ const run = async (text: string) => {
   return o.ok ? [...said] : [`FAILED: ${o.message}`, ...said];
 };
 
-// CHESS_COMMANDS.md, "Quick Start: In-App Execution".
+// The old CHESS_COMMANDS.md (before 2.7), "Quick Start: In-App Execution".
 eq("the quick start", await run(`/* Make opening moves */
 ADDRESS CHESS "move from=e2 to=e4"
 ADDRESS CHESS "move from=c7 to=c5"
@@ -72,13 +72,11 @@ eq("example 2", [ex2[0], ex2[1].split("\n")[1], ex2[2], ex2[3], ex2[4], JSON.par
   ["Current Board:", "8 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜ 8", "Game Status:", '{"status":"in_progress","toPlay":"black","isCheck":0,"legalMoves":22,"result":"*"}', "Legal Moves:",
     { from: "a7", to: "a5", piece: "P", capture: 0, promotion: "", san: "a5", coordinate: "a7a5" }, "FEN:  rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"]);
 
-// Example 3: Move Validation. As it is, RexxJS (9478e75) does not take IF
-// ... THEN with its statement on the next line, as classic REXX does
-// (asks/rexxjs-if-then-next-line.md): the script fails to parse. With
-// each IF on one line it runs; when RexxJS takes the classic form, the
-// first check here flips and the ask is resolved.
+// Example 3: Move Validation, as written: IF ... THEN with its statement on
+// the next line, which RexxJS takes since d050b3d
+// (asks/REPLY-rexxjs-if-then-next-line.md).
 c.run("game.new");
-const ex3 = `/* Try moves and validate them */
+eq("example 3", await run(`/* Try moves and validate them */
 ADDRESS CHESS "move from=e2 to=e4"
 IF RC = 0 THEN
     SAY "✓ e2-e4 is legal"
@@ -89,9 +87,7 @@ ADDRESS CHESS "move from=e2 to=e5"
 IF RC = 0 THEN
     SAY "✓ e2-e5 is legal"
 ELSE
-    SAY "✗ e2-e5 is illegal (pawn can only move 1 or 2 squares)"`;
-eq("example 3 as it is: RexxJS wants THEN and its statement on one line", await run(ex3), ["FAILED: Missing ENDIF for IF statement at line 9"]);
-eq("example 3 with each IF on one line", await run(ex3.replace(/THEN\n\s+/g, "THEN ").replace(/ELSE\n\s+/g, "ELSE ")), ["✓ e2-e4 is legal", "✗ e2-e5 is illegal (pawn can only move 1 or 2 squares)"]);
+    SAY "✗ e2-e5 is illegal (pawn can only move 1 or 2 squares)"`), ["✓ e2-e4 is legal", "✗ e2-e5 is illegal (pawn can only move 1 or 2 squares)"]);
 
 // Example 4: Undo/Redo.
 c.run("game.new");
@@ -204,8 +200,7 @@ eq("and after it, a request is one step as before", [(await ask('MOVESAN("Nf3");
 // expect: ok the whole script was one step of undo
 // expect: ok example 1
 // expect: ok example 2
-// expect: ok example 3 as it is: RexxJS wants THEN and its statement on one line
-// expect: ok example 3 with each IF on one line
+// expect: ok example 3
 // expect: ok example 4
 // expect: ok example 5 runs through its four levels
 // expect: ok set-ai-difficulty with the level given

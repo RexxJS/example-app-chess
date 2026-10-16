@@ -145,7 +145,7 @@ const RUN_PROGRAM = {
   title: 'Run a REXX program',
   description:
     'Run a whole REXX program in the chess app, as one step of undo, all or nothing: lines, DO i = 1 TO n, DO WHILE and DO FOREVER ' +
-    'loops with LEAVE, IF/THEN/ELSE (THEN and its statement on one line), SELECT, your own routines, and SAY. It calls the same functions ' +
+    'loops with LEAVE, IF/THEN/ELSE, SELECT, your own routines, and SAY. It calls the same functions ' +
     'as chess_call: r = MOVESAN("e4"), fen = GETFEN(), m = LISTLEGALMOVES() (a stem: m.0 moves, m.1.san ...). Set RESULT to give a value back; what it ' +
     'SAYs comes back too. The program is sent as it is, so nothing in it needs escaping on the way; inside it, REXX rules hold. It runs in the ' +
     'app, sandboxed: the game\'s functions and nothing else (no files, no shell, no network). It is stopped if one stretch of work runs past 5 s, ' +

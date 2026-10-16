@@ -116,8 +116,7 @@ say("## From an AI client: the MCP server", "",
 
 say("## Examples", "",
   "`rexx/reference-examples.rexx`, as it is; `spec_app_chess_rexx` runs it against the app. Inside the app, drop the",
-  "`REQUIRE` line. RexxJS wants `IF ... THEN` and its statement on one line",
-  "([asks/rexxjs-if-then-next-line.md](asks/rexxjs-if-then-next-line.md)).", "",
+  "`REQUIRE` line.", "",
   "```rexx", ...fs.readFileSync(path.join(ROOT, "rexx/reference-examples.rexx"), "utf8").trimEnd().split("\n"), "```", "");
 
 const text = out.join("\n");
