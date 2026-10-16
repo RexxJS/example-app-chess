@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-41 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+45 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -52,6 +52,10 @@ the bus and the MCP server give back.
 | [`IMPORTGAME(file)`](#importgame) | Opens a game from its file's JSON, in place of this one (what Open reads) | how many moves it has |
 | [`EXPORTPGN()`](#exportpgn) | The game in PGN: the seven tag roster (and the tags of a game read from PGN), SetUp and FEN when it did not start from the usual position, the moves in SAN, the result; comments and variations a PGN read had come back after their moves | the PGN text |
 | [`IMPORTPGN(pgn)`](#importpgn) | Reads a game from PGN in place of this one: its moves played, its result (a resignation or agreed draw when the moves do not reach it); comments, variations and annotations kept for EXPORTPGN | how many moves it has |
+| [`SAVEGAME(name)`](#savegame) | Keeps the game in the app, by a name, as its file (the moves, who the computer plays, its level, the flip): no file to pick | the name |
+| [`OPENGAME(name)`](#opengame) | Opens a game kept by SAVEGAME, in place of this one | how many moves it has |
+| [`LISTGAMES()`](#listgames) | The games kept in the app (SAVEGAME) | a stem of their names, in order |
+| [`FORGETGAME(name)`](#forgetgame) | Forgets a game kept by SAVEGAME | the name |
 | [`GETTURN()`](#getturn) | Whose move it is | "white" or "black" |
 | [`GETRESULT()`](#getresult) | The result | "1-0", "0-1", "1/2-1/2", or "*" while the game goes on |
 | [`PIECEAT(square)`](#pieceat) | What stands on a square | its FEN letter: K Q R B N P for white, k q r b n p for black, "" for none |
@@ -291,6 +295,50 @@ Reads a game from PGN in place of this one: its moves played, its result (a resi
 | Parameter | Kind | |
 |---|---|---|
 | `pgn` | text | a PGN text; its first game is read |
+
+### SAVEGAME
+
+```rexx
+SAVEGAME(name)
+```
+
+Keeps the game in the app, by a name, as its file (the moves, who the computer plays, its level, the flip): no file to pick. Gives the name.
+
+| Parameter | Kind | |
+|---|---|---|
+| `name` | text | 1 to 80 characters; a game kept by that name before is replaced |
+
+### OPENGAME
+
+```rexx
+OPENGAME(name)
+```
+
+Opens a game kept by SAVEGAME, in place of this one. Gives how many moves it has.
+
+| Parameter | Kind | |
+|---|---|---|
+| `name` | text |  |
+
+### LISTGAMES
+
+```rexx
+LISTGAMES()
+```
+
+The games kept in the app (SAVEGAME). Gives a stem of their names, in order.
+
+### FORGETGAME
+
+```rexx
+FORGETGAME(name)
+```
+
+Forgets a game kept by SAVEGAME. Gives the name.
+
+| Parameter | Kind | |
+|---|---|---|
+| `name` | text |  |
 
 ### GETTURN
 

@@ -1,0 +1,64 @@
+// spec_app_chess_files.ae — the app's own games (app/chess/view/files.ts,
+// TODO.md 5.3), across a relaunch: run-tests.sh runs it twice on one fresh
+// SAE_STORAGE_DIR. Phase 1 plays two moves, keeps the game by a name, plays
+// on, opens the kept game and plays a move from it; phase 2, a new launch,
+// finds that game in progress back (autosaved), opens the kept game again
+// and forgets it.
+//   ./run-tests.sh spec_app_chess_files
+import std.spec
+import std.string
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+phase() -> string {
+    p = os_getenv("CHESS_FILES_PHASE")
+    if p == null { return "1" }
+    return p
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    if string.equals(phase(), "1") == 1 {
+        spec.describe(fw, "keeping games, first launch") {
+            spec.it("a game kept by a name, opened again, played on") callback {
+                spec.assert_true(b.wait_for_vg_canvas(), "the board")
+                spec.assert_true(c.wait_moves(""), "a new game: nothing to resume at a first launch")
+                c.click_square("e2", 0)
+                c.click_square("e4", 0)
+                c.click_square("e7", 0)
+                c.click_square("e5", 0)
+                spec.assert_true(c.wait_moves("e4 e5"), "two moves")
+                b.set_field_by("A name for the game", "first")
+                b.click("Keep as")
+                spec.assert_true(b.wait_for_text("kept the game as \"first\": 2 moves"), "kept")
+                c.click_square("g1", 0)
+                c.click_square("f3", 0)
+                spec.assert_true(c.wait_moves("e4 e5 Nf3"), "played on")
+                spec.assert_true(b.button_exists("Open first") == 1, "the kept game's button")
+                b.click("Open first")
+                spec.assert_true(c.wait_moves("e4 e5"), "the kept game opened")
+                c.click_square("d2", 0)
+                c.click_square("d4", 0)
+                spec.assert_true(c.wait_moves("e4 e5 d4"), "a move from it: the game in progress")
+            }
+        }
+    } else {
+        spec.describe(fw, "keeping games, the next launch") {
+            spec.it("the game in progress is back; the kept game opens and is forgotten") callback {
+                spec.assert_true(b.wait_for_console("chess: resumed a game of 3 moves"), "resumed")
+                spec.assert_true(c.wait_moves("e4 e5 d4"), "the game in progress, as it was left")
+                spec.assert_true(b.wait_for_text("the game in progress is back: 3 moves"), "said")
+                spec.assert_true(c.wait_piece("d4", 0, "♙"), "on the board")
+                b.click("Open first")
+                spec.assert_true(c.wait_moves("e4 e5"), "the kept game, kept across the launch")
+                b.click("Forget first")
+                spec.assert_true(b.wait_for_text("forgot \"first\""), "forgotten")
+                spec.assert_true(b.button_exists("Open first") == 0, "its button gone")
+            }
+        }
+    }
+    return spec.run_summary(fw)
+}

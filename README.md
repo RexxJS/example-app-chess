@@ -47,7 +47,8 @@ app/
                     Save), analysis.ts (Analyse, Hint),
                     scriptpanel.ts (a REXX script run in the page,
                     and the recorder), keyboard.ts (a move typed), setup.ts (a
-                    position pasted, or set up on the board), looks.ts
+                    position pasted, or set up on the board), files.ts
+                    (games kept in the app by name), looks.ts
                     (the light and dark themes)
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"

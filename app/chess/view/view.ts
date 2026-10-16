@@ -35,6 +35,8 @@ export class ChessView {
   readonly promoting = state<{ from: number; to: number } | null>(null);
   /** The position editor (setup.ts): the board being set up and the side to move, or null when not editing. */
   readonly editing = state<{ pieces: string[]; turn: Turn } | null>(null);
+  /** The names of the games kept in the app (game.kept). */
+  readonly kept = state<string[]>([]);
   /** The piece the editor puts on a square clicked (a FEN letter), "" for emptying it. */
   readonly brush = state("K");
   /** What the computer is doing: "" when it is not thinking, else how far it has got. */
@@ -330,7 +332,9 @@ export class ChessView {
     const pieces = editing ? editing.pieces : Array.from({ length: 64 }, (_, i) => g.pieceAt(i));
     const last = editing ? null : s.lastMove;
     const king = s.check && !editing ? pieces.indexOf(s.turn === "white" ? "K" : "k") : -1;
+    const kept = this.cmds.execute("game.kept").output as string[];
     batch(() => {
+      if (kept.join("\n") !== this.kept.value.join("\n")) this.kept.set(kept);
       this.game.set(s);
       this.shown.set({
         pieces, flipped: s.flipped,
@@ -339,6 +343,7 @@ export class ChessView {
       });
     });
     for (const fn of this.#watchers) fn(s);
+    this.cmds.autosave();
     this.#followGame();
   }
 }

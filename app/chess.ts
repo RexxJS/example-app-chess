@@ -11,6 +11,8 @@
 // is the ui: each panel reads the view's states and runs commands, and
 // nothing else. This page only says which panels, in which order.
 import { ChessView } from "./chess/view/view.ts";
+import { Commands } from "./chess/commands.ts";
+import { filesPanel } from "./chess/view/files.ts";
 import { boardPanel } from "./chess/view/board.ts";
 import { promotionBar } from "./chess/view/promotion.ts";
 import { sidebar } from "./chess/view/sidebar.ts";
@@ -21,7 +23,9 @@ import { looks } from "./chess/view/looks.ts";
 import { analysisPanel } from "./chess/view/analysis.ts";
 import { setupPanel } from "./chess/view/setup.ts";
 
-const v = new ChessView();
+// The app's storage keeps its games and the game in progress (5.3).
+const v = new ChessView(new Commands(undefined, typeof storage !== "undefined" ? storage : null));
+const resumed = v.cmds.resume();
 
 menuBar(v);
 looks(v);
@@ -38,6 +42,7 @@ ui.vstack(() => {
   analysisPanel(v);
   moveField(v);
   setupPanel(v);
+  filesPanel(v);
   bind(ui.text(""), v.status);
   bind(ui.text(""), computed(() => {
     const g = v.game.value;
@@ -51,6 +56,10 @@ ui.vstack(() => {
   scriptPanel(v);
 });
 v.refresh();
+if (resumed >= 0) {
+  v.status.set(`the game in progress is back: ${resumed} moves`);
+  print(`chess: resumed a game of ${resumed} moves`);
+}
 
 // The control bus (an installed app started with --control-bus): another
 // program drives the game, each request a string of REXX (MOVE("e2",

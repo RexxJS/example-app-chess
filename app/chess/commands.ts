@@ -34,8 +34,46 @@ interface Spec {
   readonly params: readonly string[];       // each required
   readonly optional?: readonly string[];
   readonly journaled: boolean;              // it changes the game
-  run(game: Game, p: Params): Outcome;
+  run(game: Game, p: Params, store: Store | null): Outcome;
 }
+
+/**
+ * Where the app keeps games of its own (TODO.md 5.3): sae's `storage` in
+ * the page (values that outlive the page and the process, the app's own),
+ * a Map in a test. Keys, as sae's storage takes them (letters, digits,
+ * ".", "_", "-"; at most 128): "game.<hash of the name>" a kept game's
+ * file, "games" the names (JSON), "autosave" the game in progress.
+ */
+export interface Store {
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+  remove(key: string): void;
+}
+
+const AUTOSAVE = "autosave";
+// A kept game's key: its name hashed (FNV-1a, 32 bits), as a name may hold
+// any character and a storage key may not.
+const keyOf = (name: string): string => {
+  let h = 0x811c9dc5;
+  for (const ch of name) {
+    h ^= ch.codePointAt(0)!;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `game.${h.toString(16).padStart(8, "0")}`;
+};
+const keptNames = (store: Store): string[] => {
+  try {
+    const v = JSON.parse(store.get("games") ?? "[]");
+    return Array.isArray(v) ? v.map(String) : [];
+  } catch (_e) {
+    return [];
+  }
+};
+const nameOf = (s: string): string => {
+  const t = s.trim();
+  return t && t.length <= 80 && !/[\u0000-\u001f]/.test(t) ? t : refuse(`a game's name is 1 to 80 characters, not "${s}"`);
+};
+const storeOf = (store: Store | null): Store => store ?? refuse("no place to keep games here (the app's storage)");
 
 // A command that cannot run as asked: its message is the Outcome's.
 class Refused extends Error {}
@@ -253,6 +291,46 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.save", label: "Keep the game", params: ["name"], journaled: false,
+    run: (game, p, store) => {
+      const st = storeOf(store), name = nameOf(p.name);
+      st.set(keyOf(name), JSON.stringify(game.toFile()));
+      const names = keptNames(st);
+      if (!names.includes(name)) st.set("games", JSON.stringify([...names, name].sort()));
+      return { ok: true, message: `kept the game as "${name}": ${game.made.length} moves`, output: name };
+    },
+  },
+  {
+    id: "game.open", label: "Open a kept game", params: ["name"], journaled: true,
+    run: (game, p, store) => {
+      const st = storeOf(store), name = nameOf(p.name);
+      const text = st.get(keyOf(name)) ?? refuse(`no game kept as "${name}"`);
+      try {
+        game.fromFile(text);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `opened "${name}": ${game.made.length} moves, ${game.turn()} to move`, output: game.made.length };
+    },
+  },
+  {
+    id: "game.kept", label: "The kept games", params: [], journaled: false,
+    run: (_game, _p, store) => {
+      const names = store ? keptNames(store) : [];
+      return { ok: true, message: names.length ? `kept: ${names.join(", ")}` : "no games kept", output: names };
+    },
+  },
+  {
+    id: "game.forget", label: "Forget a kept game", params: ["name"], journaled: false,
+    run: (_game, p, store) => {
+      const st = storeOf(store), name = nameOf(p.name);
+      if (st.get(keyOf(name)) === null) refuse(`no game kept as "${name}"`);
+      st.remove(keyOf(name));
+      st.set("games", JSON.stringify(keptNames(st).filter((n) => n !== name)));
+      return { ok: true, message: `forgot "${name}"`, output: name };
+    },
+  },
+  {
     id: "view.dark", label: "Dark mode", params: [], optional: ["on"], journaled: true,
     run: (game, p) => {
       if (p.on !== undefined && !/^(0|1|on|off|true|false|yes|no)$/i.test(p.on.trim())) refuse(`${p.on} is not on or off (1 or 0)`);
@@ -285,10 +363,37 @@ const BY_ID = new Map(SPECS.map((s) => [s.id, s]));
 
 export class Commands {
   readonly game: Game;
+  /** Where kept games and the game in progress go (sae's storage in the page); null for none. */
+  readonly store: Store | null;
   readonly #journal: string[] = [];
+  #autosaved = "";
 
-  constructor(game: Game = new Game()) {
+  constructor(game: Game = new Game(), store: Store | null = null) {
     this.game = game;
+    this.store = store;
+  }
+
+  /** The game in progress kept (its file, under "autosave"), when it changed since; the page does it after every change. */
+  autosave(): boolean {
+    if (!this.store) return false;
+    const text = JSON.stringify(this.game.toFile());
+    if (text === this.#autosaved) return false;
+    this.store.set(AUTOSAVE, text);
+    this.#autosaved = text;
+    return true;
+  }
+
+  /** The game in progress at the last autosave back, as the app starts: how many moves it has, or -1 for none (or one that will not open). */
+  resume(): number {
+    const text = this.store?.get(AUTOSAVE);
+    if (!text) return -1;
+    try {
+      this.game.fromFile(text);
+    } catch (_e) {
+      return -1;
+    }
+    this.#autosaved = text;
+    return this.game.made.length;
   }
 
   // Every command whose id or label holds `search` (any case).
@@ -303,7 +408,7 @@ export class Commands {
     try {
       if (!spec) refuse(`no command ${id}`);
       for (const name of spec!.params) if (params[name] === undefined) refuse(`${id} needs ${name}`);
-      const outcome = spec!.run(this.game, params);
+      const outcome = spec!.run(this.game, params, this.store);
       if (outcome.ok && spec!.journaled) this.#journal.push(lineOf(id, params));
       return outcome;
     } catch (e) {
