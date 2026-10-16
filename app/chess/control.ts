@@ -12,6 +12,7 @@ import { RANK_CHARACTERS, getIndex, getIndexFromAlgebraic, getPieceCharacter } f
 import { legalMovesOf } from "./game.ts";
 import type { Game, State } from "./game.ts";
 import { DESCRIBED, signature } from "./described.ts";
+import { canSlice, thinkOnce } from "./think.ts";
 
 export interface Done {
   readonly ok: boolean;
@@ -108,7 +109,14 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   SETAIDIFFICULTY: (exec, _g, level) => must(exec, "ai.level", { level: text(level) }).output,
   GETAIDIFFICULTY: (exec) => state(exec).aiLevel,
   SETAISIDE: (exec, _g, side) => must(exec, "ai.side", { side: text(side) }).output,
-  AIMOVE: (exec) => must(exec, "ai.move").output,
+  // In a page, the computer thinks in slices (think.ts), so a level-4 move
+  // inside a control-bus request does not run into sae's limit for one
+  // piece of work; the move is then made as ai.move's. With no timers (a
+  // headless test) it is one call.
+  AIMOVE: (exec, game) => {
+    if (!canSlice() || game.isOver()) return must(exec, "ai.move").output;
+    return thinkOnce(game).then((move) => must(exec, "ai.move", move === null ? {} : { move }).output);
+  },
   FLIPBOARD: (exec) => must(exec, "board.flip").output,
   BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : { px: text(px) }).output,
   DARKMODE: (exec, _g, on) => must(exec, "view.dark", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,

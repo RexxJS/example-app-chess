@@ -187,36 +187,135 @@ export function depthOf(level: number): number {
   return Math.max(1, Math.min(4, Math.floor(level) || 1));
 }
 
-export class AI {
-  /** Positions evaluated by the last search. */
-  evaluations = 0;
+/** Thrown inside a search past its deadline: the depth it was at is given up. */
+class OutOfTime extends Error {}
 
-  /** The best move `depth` half-moves deep (1 or more), or null when there is none (mate, stalemate). */
+/**
+ * A search that can be done a piece at a time (TODO.md 4.2): sae stops one
+ * entry into a page's JavaScript after 5 s, and a page should answer its
+ * person long before that, so the page thinks in slices, a timer apart.
+ * Iterative deepening, depth 1 up to the depth asked, one root move at a
+ * time: step() goes on until its budget is spent (checked between root
+ * moves), and `best` is always the best move of the deepest depth done.
+ * Run to the end it is the same search as the old player's, so it gives
+ * the same move: AI.search runs one so.
+ *
+ * It searches a position of its own (the caller's copy): a slice leaves it
+ * as it found it. A hard deadline in a slice (hardMs) gives up the depth
+ * in progress and ends the search with the depth before it, so no slice
+ * runs on past it, however slow a root move's search.
+ */
+export class Thinking {
+  readonly position: Position;
+  /** The depth asked for: how many half-moves. */
+  readonly depth: number;
+  readonly ai: AI;
+  /** The best move of the deepest depth completed; null until depth 1 is (or when there is no move). */
+  best: Move | null = null;
+  /** Its value to white, in centipawns. */
+  bestValue = 0;
+  /** The deepest depth completed. */
+  reached = 0;
+  /** The search is over: the depth asked for done, given up past a deadline, or stopped. */
+  done = false;
+  /** It ended past a deadline, short of the depth asked for. */
+  cut = false;
+  #moves: Move[];
+  #white: boolean;
+  #at = 1;           // the depth in progress
+  #i = 0;            // the next root move at it
+  #alpha = -Infinity;
+  #beta = Infinity;
+  #bestHere: Move | null = null;
+  #legalHere = false;
+
+  constructor(position: Position, depth: number, ai: AI = new AI()) {
+    this.position = position;
+    this.depth = Math.max(1, Math.floor(depth));
+    this.ai = ai;
+    this.#white = position.getTurnColor() === PieceColor.WHITE;
+    this.#moves = sortMoves(position.getMoves(true));
+    if (!position.getMoves().length) this.done = true;
+  }
+
+  /** Root moves searched so far at the depth in progress, and how many there are. */
+  progress(): { depth: number; move: number; of: number } {
+    return { depth: this.done ? this.reached : this.#at, move: this.#i, of: this.#moves.length };
+  }
+
+  /** Searches on for about `budgetMs` (at least one root move), never past `hardMs`; true when the search is over. */
+  step(budgetMs: number = Infinity, hardMs: number = Infinity): boolean {
+    if (this.done) return true;
+    const t0 = Date.now();
+    this.ai.deadline = hardMs === Infinity ? Infinity : t0 + hardMs;
+    const base = this.position.getMadeMoveCount();
+    try {
+      do {
+        this.#rootMove();
+      } while (!this.done && Date.now() - t0 < budgetMs);
+    } catch (e) {
+      if (!(e instanceof OutOfTime)) throw e;
+      while (this.position.getMadeMoveCount() > base) this.position.unmakeMove();
+      this.cut = true;
+      this.done = true;
+      if (!this.best) this.best = this.position.getMoves()[0] ?? null;
+    } finally {
+      this.ai.deadline = Infinity;
+    }
+    return this.done;
+  }
+
+  /** Ends the search now, with the best move so far. */
+  stop(): void {
+    this.done = true;
+  }
+
+  #rootMove(): void {
+    const move = this.#moves[this.#i++];
+    if (this.position.makeMove(move)) {
+      this.#legalHere = true;
+      const value = this.ai.alphaBeta(this.position, this.#at - 1, this.#alpha, this.#beta);
+      this.position.unmakeMove();
+      if (this.#white) {
+        if (value > this.#alpha) {
+          this.#alpha = value;
+          this.#bestHere = move;
+        }
+      } else if (value < this.#beta) {
+        this.#beta = value;
+        this.#bestHere = move;
+      }
+      // Only one of alpha and beta moves at the root: the other stays infinite.
+    }
+    if (this.#i < this.#moves.length) return;
+    // A depth done: its best is the best now.
+    this.best = this.#bestHere;
+    this.bestValue = this.#white ? this.#alpha : this.#beta;
+    this.reached = this.#at;
+    if (this.#at >= this.depth || !this.#legalHere) {
+      this.done = true;
+      return;
+    }
+    this.#at++;
+    this.#i = 0;
+    this.#alpha = -Infinity;
+    this.#beta = Infinity;
+    this.#bestHere = null;
+  }
+}
+
+export class AI {
+  /** Positions evaluated, all told. */
+  evaluations = 0;
+  /** When a search in a slice must give up (Date.now()); Infinity for never. */
+  deadline = Infinity;
+
+  /** The best move `depth` half-moves deep (1 or more), or null when there is none (mate, stalemate); all at once. */
   search(position: Position, depth: number = 4): Move | null {
     this.evaluations = 0;
-    let bestMove: Move | null = null;
-    let alpha = -Infinity;
-    let beta = Infinity;
-    const white = position.getTurnColor() === PieceColor.WHITE;
-    for (const move of sortMoves(position.getMoves(true))) {
-      if (position.makeMove(move)) {
-        const value = this.alphaBeta(position, depth - 1, alpha, beta);
-        position.unmakeMove();
-        if (white) {
-          if (value > alpha) {
-            alpha = value;
-            bestMove = move;
-          }
-        } else if (value < beta) {
-          beta = value;
-          bestMove = move;
-        }
-        // Only one of alpha and beta moves at the root: the other stays infinite.
-      }
-    }
-    // Every move loses to mate: the old gave null here, the first legal move is better.
-    if (!bestMove) bestMove = position.getMoves()[0] ?? null;
-    return bestMove;
+    const t = new Thinking(position, depth, this);
+    t.step();
+    return t.best;
   }
 
   quiescenceSearch(position: Position, alpha: number, beta: number): number {
@@ -225,7 +324,7 @@ export class AI {
       return 0;
     }
     const standPatValue = evaluate(position);
-    ++this.evaluations;
+    if ((++this.evaluations & 255) === 0 && Date.now() > this.deadline) throw new OutOfTime("out of time");
     const white = (position.getTurnColor() === PieceColor.WHITE);
     if (white) {
       if (standPatValue >= beta) return beta;

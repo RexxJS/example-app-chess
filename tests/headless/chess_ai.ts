@@ -6,7 +6,7 @@
 // at a level.
 import { Position } from "./chess/position.ts";
 import { fromFen } from "./chess/parser.ts";
-import { AI, depthOf, evaluate, evaluateMaterial, getMobilityValue } from "./chess/ai.ts";
+import { AI, Thinking, depthOf, evaluate, evaluateMaterial, getMobilityValue } from "./chess/ai.ts";
 import { PieceColor } from "./chess/chess.ts";
 import { Commands } from "./chess/commands.ts";
 import { eq } from "./lib/check.ts";
@@ -49,6 +49,43 @@ eq("the position is as it was after a search", (() => {
   return [p.hashKey.isEqual(key), p.getMadeMoveCount()];
 })(), [true, 0]);
 
+// Thinking in slices (4.2): the same move as all at once, a root move or
+// so a slice; a hard deadline gives up the depth in progress and keeps the
+// one before; the position is as it was after any of it.
+const sliced = (fen: string, depth: number) => {
+  const t = new Thinking(fromFen(fen), depth);
+  let slices = 0;
+  while (!t.step(0)) slices++;
+  return [t.best?.getCoordinate(), t.reached, slices > depth];
+};
+eq("in slices, the same move as all at once", sliced(kiwi, 3), [ai.search(fromFen(kiwi), 3)?.getCoordinate(), 3, true]);
+eq("and from the start at level 4", sliced("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 4)[0], ai.search(new Position(), 4)?.getCoordinate());
+eq("its progress: the depth, the root move, of how many", (() => {
+  const t = new Thinking(new Position(), 2);
+  t.step(0);
+  const a = t.progress();
+  t.step(0);
+  return [a, t.progress(), t.reached];
+})(), [{ depth: 1, move: 1, of: 20 }, { depth: 1, move: 2, of: 20 }, 0]);
+eq("past a hard deadline: cut short, the move of a depth done, the position back", (() => {
+  const p = fromFen(kiwi);
+  const key = p.hashKey.dup();
+  const t = new Thinking(p, 4);
+  while (t.reached < 1) t.step(0);
+  t.step(Infinity, 0);
+  return [t.done, t.cut, t.reached < 4, t.best !== null, p.hashKey.isEqual(key), p.getMadeMoveCount()];
+})(), [true, true, true, true, true, 0]);
+eq("stop: done, with the best so far", (() => {
+  const t = new Thinking(new Position(), 4);
+  while (t.reached < 2) t.step(0);
+  t.stop();
+  return [t.step(), t.reached, t.best?.getCoordinate()];
+})(), [true, 2, ai.search(new Position(), 2)?.getCoordinate()]);
+eq("no move to think about when mated", (() => {
+  const t = new Thinking(fromFen("R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1"), 3);
+  return [t.done, t.step(), t.best];
+})(), [true, true, null]);
+
 // ai.move: a game the computer plays both sides of, each move a step of undo.
 const c = new Commands();
 c.run("ai.level level=1");
@@ -59,6 +96,8 @@ eq("and the journal replays it", (() => {
   for (const line of c.journal()) again.run(line);
   return again.game.fen();
 })(), c.game.fen());
+eq("ai.move with the move a search chose", [c.run(`ai.move move=${c.game.legalMoves()[0].getCoordinate()}`).message.startsWith("the computer (white, level 1) played"), c.run("ai.move move=e8e4").message], [true, "e8e4 is not a legal move for black"]);
+eq("a game's copy of its position, with its history", [c.game.positionCopy().getMadeMoveCount(), c.game.positionCopy().hashKey.isEqual(c.game.position.hashKey)], [5, true]);
 c.run("game.setPosition fen=\"R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1\"");
 eq("no ai.move after mate", c.run("ai.move").message, "the game is over (checkmate, 1-0)");
 
@@ -79,6 +118,14 @@ eq("no ai.move after mate", c.run("ai.move").message, "the game is over (checkma
 // expect: ok mate, not stalemate
 // expect: ok deterministic at a level: the same move, the same count
 // expect: ok the position is as it was after a search
+// expect: ok in slices, the same move as all at once
+// expect: ok and from the start at level 4
+// expect: ok its progress: the depth, the root move, of how many
+// expect: ok past a hard deadline: cut short, the move of a depth done, the position back
+// expect: ok stop: done, with the best so far
+// expect: ok no move to think about when mated
 // expect: ok ai.move plays both sides, a step each
 // expect: ok and the journal replays it
+// expect: ok ai.move with the move a search chose
+// expect: ok a game's copy of its position, with its history
 // expect: ok no ai.move after mate

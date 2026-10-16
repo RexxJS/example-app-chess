@@ -80,5 +80,8 @@ to the chess frame. What changed:
   move, 21-29 for the board, ... `CHESS_COMMANDS.md`'s old table); RC is
   now 1 for any refusal, with the reason in ERRORTEXT, and 2 for no app
   (inside the app, an unknown command's RC is 2, as before).
-- **The computer player** does not answer a move yet (stage 4 of
-  `TODO.md`): `move` makes only the move it is given.
+- **The computer player** answers as the old app's did, but after the
+  request rather than in it: with `SETAISIDE("black")`, a `move` for white
+  is answered by the page with black's move a moment later (it thinks in
+  slices, `app/chess/think.ts`). `AIMOVE()` makes the computer's move
+  inside the request, and gives its SAN.

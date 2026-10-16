@@ -8,6 +8,8 @@ import { Commands } from "../commands.ts";
 import type { Outcome, Params } from "../commands.ts";
 import { stateOf } from "../game.ts";
 import type { State } from "../game.ts";
+import { think } from "../think.ts";
+import type { Thought } from "../think.ts";
 
 /** What the board shows: a piece's FEN letter (or "") per square index 0-63, and the marks. */
 export interface Shown {
@@ -28,7 +30,15 @@ export class ChessView {
   readonly status = state("");          // what the last command said
   /** A pawn's move to the last rank, waiting for the piece it becomes; null when none is. */
   readonly promoting = state<{ from: number; to: number } | null>(null);
+  /** What the computer is doing: "" when it is not thinking, else how far it has got. */
+  readonly thinking = state("");
   #selected = -1;
+  /** The computer's search in progress (think.ts), or null. */
+  #thought: Thought | null = null;
+  /** It thinks because it plays the side to move (not for Computer move). */
+  #auto = false;
+  /** The game's key when Stop was pressed: the computer does not start again by itself until the game changes. */
+  #pausedKey = "";
   /** Told the game's state after every refresh: the panels that rebuild themselves (looks.ts, board.ts's size). */
   readonly #watchers: ((s: State) => void)[] = [];
 
@@ -47,6 +57,77 @@ export class ChessView {
     this.refresh();
     this.status.set(o.message);
     return o;
+  }
+
+  // ---- the computer player (think.ts: in slices, the page live meanwhile)
+
+  /** The computer plays the side to move (ai.side), and the game goes on. */
+  computerToMove(): boolean {
+    const g = this.cmds.game;
+    return !g.isOver() && (g.aiSide === "both" || g.aiSide === g.turn());
+  }
+
+  isThinking(): boolean {
+    return this.#thought !== null;
+  }
+
+  /** The computer thinks for the side to move, then makes its move (ai.move); `auto` when it does so because it plays that side. */
+  think(auto = false): void {
+    const g = this.cmds.game;
+    if (this.#thought) return;
+    if (g.isOver()) {
+      this.status.set(`the game is over (${g.status()}, ${g.result()})`);
+      return;
+    }
+    const who = `${g.turn()}, level ${g.aiLevel}`;
+    const thought = think(g, (move, fresh, t) => {
+      if (this.#thought !== thought) return;
+      this.#thought = null;
+      this.thinking.set("");
+      if (!fresh) return;
+      const o = this.run("ai.move", move === null ? {} : { move });
+      if (o.ok && t.cut) this.status.set(`${o.message} (out of time at depth ${t.reached + 1}: depth ${t.reached}'s move)`);
+    }, (t) => {
+      const p = t.progress();
+      this.thinking.set(`The computer (${who}) is thinking: depth ${p.depth} of ${t.depth}, move ${p.move} of ${p.of}`);
+    });
+    this.#thought = thought;
+    this.#auto = auto;
+    this.thinking.set(`The computer (${who}) is thinking`);
+  }
+
+  /** Stop: the search is dropped, and the computer waits until the game changes (or Computer move). */
+  stopThinking(): void {
+    if (!this.#thought) {
+      this.status.set("the computer is not thinking");
+      return;
+    }
+    this.#thought.cancel();
+    this.#thought = null;
+    this.#pausedKey = this.cmds.game.key();
+    this.thinking.set("");
+    this.status.set("stopped: the computer waits (Computer move to have it move)");
+  }
+
+  /** Undo, against the computer: back to the person's move (two moves, the computer's and theirs), when the computer plays one side. */
+  undo(): void {
+    const o = this.run("game.undo");
+    if (o.ok && o.output && this.computerToMove() && this.cmds.game.aiSide !== "both" && this.cmds.game.canUndo()) this.run("game.undo");
+  }
+
+  // A search the game has left behind is dropped; the computer starts when
+  // it plays the side to move, at the head of the game (not after an undo
+  // or a step back in the move list, whose redo it would throw away), and
+  // was not stopped at this position.
+  #followGame(): void {
+    const g = this.cmds.game;
+    const t = this.#thought;
+    if (t && (t.key !== g.key() || (this.#auto && !this.computerToMove()))) {
+      t.cancel();
+      this.#thought = null;
+      this.thinking.set("");
+    }
+    if (!this.#thought && this.computerToMove() && !g.canRedo() && g.key() !== this.#pausedKey) this.think(true);
   }
 
   /** The square picked to move from (-1 for none): its legal targets are shown. */
@@ -68,7 +149,7 @@ export class ChessView {
    * instead, the same square drops it, and any other square is refused.
    */
   clickSquare(index: number): void {
-    if (this.promoting.value) return;
+    if (this.promoting.value || this.#busy()) return;
     const from = this.#selected;
     if (from >= 0 && from !== index && this.targetsOf(from).includes(index)) {
       this.moveTo(from, index);
@@ -90,12 +171,19 @@ export class ChessView {
 
   /** A piece dragged from `from` and let go over `to` (-1: off the board). */
   dropOn(from: number, to: number): void {
-    if (this.promoting.value || to < 0 || to === from || !this.ownPiece(from)) return;
+    if (this.promoting.value || this.#busy() || to < 0 || to === from || !this.ownPiece(from)) return;
     if (this.targetsOf(from).includes(to)) this.moveTo(from, to);
     else {
       this.select(-1);
       this.status.set(`${getAlgebraicFromIndex(from)} to ${getAlgebraicFromIndex(to)} is not a legal move for ${this.cmds.game.turn()}`);
     }
+  }
+
+  // The computer is thinking: the board waits for it.
+  #busy(): boolean {
+    if (!this.#thought) return false;
+    this.status.set("the computer is thinking (Stop to stop it)");
+    return true;
   }
 
   /** A piece of the side to move on the square. */
@@ -154,5 +242,6 @@ export class ChessView {
       });
     });
     for (const fn of this.#watchers) fn(s);
+    this.#followGame();
   }
 }

@@ -172,13 +172,17 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
-    id: "ai.move", label: "Computer move", params: [], journaled: true,
+    id: "ai.move", label: "Computer move", params: [], optional: ["move"], journaled: true,
     // The computer player (ai.ts) at the game's level: its move is one
     // step of undo, as a person's is; the same position at the same level
-    // gives the same move, so a journal of ai.move lines replays.
-    run: (game) => {
+    // gives the same move, so a journal of ai.move lines replays. `move`:
+    // the move a search already chose, made as the computer's (the page
+    // and AIMOVE think in slices, think.ts, and then make it so).
+    run: (game, p) => {
       if (game.isOver()) refuse(`the game is over (${game.status()}, ${game.result()})`);
-      const move = new AI().search(game.position, depthOf(game.aiLevel)) ?? refuse(`the computer has no move for ${game.turn()}`);
+      const move = p.move !== undefined
+        ? game.find(p.move.trim().toLowerCase()) ?? refuse(`${p.move} is not a legal move for ${game.turn()}`)
+        : new AI().search(game.position, depthOf(game.aiLevel)) ?? refuse(`the computer has no move for ${game.turn()}`);
       const who = game.turn();
       const m = game.move(move);
       return { ok: true, message: `the computer (${who}, level ${game.aiLevel}) played ${m.san}${game.isOver() ? ` (${game.status()}, ${game.result()})` : ""}`, output: m.san };

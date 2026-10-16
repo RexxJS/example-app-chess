@@ -1,0 +1,85 @@
+// spec_app_chess_thinking.ae — the computer player thinking off the page's
+// work (app/chess/think.ts, TODO.md 4.2): a level-4 move on a busy middle
+// game (Kiwipete) is searched in slices a timer apart, the specs' page
+// limit of 1 s for one piece of work never reached, and the page answers
+// the driver meanwhile (the progress shown, a button pressed, a click on
+// the board turned away); Stop drops the search and nothing is played;
+// AIMOVE() over the control bus at level 4 thinks in slices too; and the
+// computer answers a person's move when it plays the other side.
+//   ./run-tests.sh spec_app_chess_thinking
+import std.spec
+import std.string
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+const KIWIPETE = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "thinking in slices") {
+        spec.it("a level-4 move on Kiwipete completes, the page answering meanwhile") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s1, set = command_(key, "SETPOSITION(\"${KIWIPETE}\")")
+            spec.assert_contains(set, "\"success\":true", "Kiwipete set up")
+            _s2, lv = command_(key, "SETAIDIFFICULTY(4)")
+            spec.assert_contains(lv, "\"result\":4", "level 4")
+            spec.assert_true(c.wait_fen(KIWIPETE), "on the page")
+            b.click("Computer move")
+            spec.assert_true(c.wait_text_starting("The computer (white, level 4) is thinking: depth", 5), "thinking, its progress shown")
+            spec.assert_true(c.wait_text_starting("The computer (white, level 4) is thinking: depth 4 of 4", 20), "still going, deeper")
+            b.click("Flip")
+            spec.assert_true(b.wait_for_text("black at the bottom"), "a button answered while it thinks")
+            spec.assert_true(c.has_text_starting("The computer (white, level 4) is thinking: depth 4 of 4") == 1, "and it thinks on")
+            c.click_square("a2", 1)
+            spec.assert_true(b.wait_for_text("the computer is thinking (Stop to stop it)"), "the board waits for it")
+            spec.assert_true(c.wait_text_starting("the computer (white, level 4) played ", 60), "the move made")
+            spec.assert_true(b.wait_for_text_gone("The computer (white, level 4) is thinking"), "and the thinking over")
+            spec.assert_true(b.wait_for_text("black to move: in_progress"), "black to move")
+            _s3, n = command_(key, "GETMOVEHISTORY()")
+            spec.assert_contains(n, "\"0\":1", "one move, one step")
+            b.click("Flip")
+        }
+        spec.it("Stop drops the search: no move is made") callback {
+            b.click("Undo")
+            spec.assert_true(c.wait_fen(KIWIPETE), "back to Kiwipete")
+            b.click("Computer move")
+            spec.assert_true(c.wait_text_starting("The computer (white, level 4) is thinking", 5), "thinking")
+            b.click("Stop")
+            spec.assert_true(b.wait_for_text("stopped: the computer waits (Computer move to have it move)"), "stopped")
+            spec.assert_true(b.wait_for_text_gone("The computer (white, level 4) is thinking"), "no longer thinking")
+            sleep(3000)
+            spec.assert_true(c.wait_fen(KIWIPETE), "and nothing played")
+        }
+        spec.it("AIMOVE() over the bus at level 4 thinks in slices, inside the page's limit") callback {
+            _u, key = courier_()
+            st, got = command_(key, "AIMOVE()")
+            spec.assert_str_eq(st, "HTTP/1.1 200 OK", "answered")
+            spec.assert_contains(got, "\"success\":true", "a move, not stopped at the page's limit")
+            spec.assert_true(b.wait_for_text("black to move: in_progress"), "made")
+            _s2, h = command_(key, "GETMOVEHISTORY()")
+            spec.assert_contains(h, "\"0\":1", "one move")
+        }
+    }
+    spec.describe(fw, "playing the computer") {
+        spec.it("as white: the computer answers each move as black") callback {
+            b.click("New game")
+            b.click("Level 1")
+            b.click("Play as white")
+            spec.assert_true(b.wait_for_text("You play white; the computer plays black, at level 1"), "as white")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            spec.assert_true(c.wait_text_starting("the computer (black, level 1) played ", 10), "the computer answers")
+            spec.assert_true(b.wait_for_text("white to move: in_progress"), "the person's move again")
+            b.click("Undo")
+            spec.assert_true(c.wait_moves(""), "Undo takes back both, the computer's move and the person's")
+            sleep(1000)
+            spec.assert_true(c.wait_moves(""), "and the computer waits for the person")
+            b.click("Play both sides")
+        }
+    }
+    return spec.run_summary(fw)
+}

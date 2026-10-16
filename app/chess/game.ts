@@ -299,6 +299,18 @@ export class Game {
 
   // ---- reading
 
+  /** A position of its own with this game's history, for a search to work on: the start, then each move made. */
+  positionCopy(): Position {
+    const p = fromFen(this.startFen);
+    for (const m of this.made) p.makeMove(m.move);
+    return p;
+  }
+
+  /** What changes when the game does (a move, undo, a new position, the end): a search started at one key is stale at another. */
+  key(): string {
+    return `${this.fen()} ${this.made.length} ${this.status()}`;
+  }
+
   fen(): string {
     return toFen(this.position);
   }

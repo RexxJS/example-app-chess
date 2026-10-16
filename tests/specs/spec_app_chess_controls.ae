@@ -61,6 +61,8 @@ main() {
             spec.assert_true(b.wait_for_text("The computer plays both sides, at level 4"), "both")
             b.click("Play both sides")
             spec.assert_true(b.wait_for_text("You play both sides"), "back to two people")
+            b.click("New game")
+            spec.assert_true(c.wait_moves(""), "and the computer's moves gone")
         }
     }
     spec.describe(fw, "the menu bar") {

@@ -1,5 +1,5 @@
 // The buttons and the menu bar: New game, Undo, Redo, Flip, Resign, Offer
-// draw; who plays (the person as white, as black, both sides, or the
+// draw; Computer move and Stop (it thinks in slices, think.ts); who plays (the person as white, as black, both sides, or the
 // computer both); the computer's level; Open and Save (a game file the
 // person picks, through documents). Each runs a command; the menu bar
 // (an installed app's, sae's ui.menu) runs the same.
@@ -20,7 +20,7 @@ export function playsLabel(aiSide: AiSide, level: number): string {
 export function toolbar(v: ChessView): void {
   ui.hstack(() => {
     ui.btn("New game", () => v.run("game.new"));
-    ui.btn("Undo", () => v.run("game.undo"));
+    ui.btn("Undo", () => v.undo());
     ui.btn("Redo", () => v.run("game.redo"));
     ui.btn("Flip", () => v.run("board.flip"));
     ui.btn("Resign", () => v.run("game.resign"));
@@ -36,7 +36,10 @@ export function toolbar(v: ChessView): void {
   ui.hstack(() => {
     for (const [label, side] of PLAYS) ui.btn(label, () => v.run("ai.side", { side }));
     for (const level of [1, 2, 3, 4]) ui.btn(`Level ${level}`, () => v.run("ai.level", { level: String(level) }));
+    ui.btn("Computer move", () => v.think());
+    ui.btn("Stop", () => v.stopThinking());
   });
+  bind(ui.text(""), v.thinking);
   bind(ui.text(""), computed(() => {
     const g = v.game.value;
     return g ? playsLabel(g.aiSide, g.aiLevel) : "";
@@ -57,7 +60,7 @@ export function menuBar(v: ChessView): void {
     ui.menu_item("Offer draw", () => v.run("game.offerDraw"));
   });
   ui.menu("Edit", () => {
-    ui.menu_item("Undo", () => v.run("game.undo"));
+    ui.menu_item("Undo", () => v.undo());
     ui.menu_item("Redo", () => v.run("game.redo"));
   });
   ui.menu("Board", () => {
@@ -68,6 +71,9 @@ export function menuBar(v: ChessView): void {
     for (const [label, side] of PLAYS) ui.menu_item(label, () => v.run("ai.side", { side }));
     ui.menu_separator();
     for (const level of [1, 2, 3, 4]) ui.menu_item(`Level ${level}`, () => v.run("ai.level", { level: String(level) }));
+    ui.menu_separator();
+    ui.menu_item("Computer move", () => v.think());
+    ui.menu_item("Stop thinking", () => v.stopThinking());
   });
 }
 
