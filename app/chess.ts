@@ -1,5 +1,6 @@
 "seeks documents, reduced functionality without";
 "seeks control-bus, reduced functionality without";
+"seeks native engine, reduced functionality without";
 // Chess, the sae app: Kaj Björklund's JavaScript Chess (MIT, 2013) carried
 // over to sae, so it runs natively on aether-ui with no DOM, every action a
 // command and every command reachable from REXX (TODO.md).
@@ -23,7 +24,13 @@ import { looks } from "./chess/view/looks.ts";
 import { analysisPanel } from "./chess/view/analysis.ts";
 import { setupPanel } from "./chess/view/setup.ts";
 import { puzzlePanel } from "./chess/view/puzzles.ts";
+import { useNative } from "./chess/think.ts";
 
+// The engine in Aether, when this is the app's own sae (TODO.md 4.4, sae's
+// docs/natives.md): the computer thinks with it, off the UI thread; else
+// the TypeScript engine thinks in slices (think.ts).
+if (typeof natives !== "undefined" && natives.engine) useNative((arg: string) => natives.engine.search(arg));
+print(`chess: the engine is ${typeof natives !== "undefined" && natives.engine ? "native" : "typescript"}`);
 // The app's storage keeps its games and the game in progress (5.3).
 const v = new ChessView(new Commands(undefined, typeof storage !== "undefined" ? storage : null));
 const resumed = v.cmds.resume();

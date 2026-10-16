@@ -3,6 +3,12 @@
   "start": "/chess",
   "width": 1000,
   "height": 900,
+  "natives": {
+    "engine": {
+      "module": "native/engine.ae",
+      "functions": ["search", "perft"]
+    }
+  },
   "capabilities": {
     "documents": {},
     "controlBus": {

@@ -1,4 +1,4 @@
-// native/engine.ae: the computer player in Aether (TODO.md 4.4), a port
+// app/native/engine.ae: the computer player in Aether (TODO.md 4.4), a port
 // of app/chess/ai.ts and the parts of position.ts, move.ts, zobrist.ts and
 // bitboard.ts it stands on, from Kaj Björklund's JavaScript Chess
 // (https://github.com/kbjorklu/chess, MIT, copyright (c) 2013 Kaj
@@ -13,17 +13,24 @@
 // evaluated (tests/native/check.sh holds them to it). Bitboards are one
 // uint64 here, not two 32-bit halves.
 //
-// As a program (`ae build native/engine.ae -o target/chess-engine`):
-//   chess-engine perft "<fen>" <depth>
-//   chess-engine search "<fen>" <depth> [seed]
-//     best=e2e4 value=35 reached=4 ties=1 nodes=2338 evaluations=1675 ms=12
-//   chess-engine bench "<fen>" <depth>        (search, timed, three times)
+// A module (TODO.md 4.4): what the page calls, through sae's natives
+// (app.json "natives", sae's docs/natives.md), and what native/cli.ae runs
+// as a program. It needs no capability at all (`ae inspect` says
+// "capability-empty"): no files, no clock, no system, no C; sae holds a
+// native module to that. Its two functions, a string in and a string out:
+//
+//   search("<depth>|<seed>|<fen>|<moves>")    the moves (coordinate, from the
+//     FEN, space-separated, maybe none) played first, so the search knows
+//     the game's repetitions as ai.ts's does from game.positionCopy();
+//     gives "best=e2e4 value=35 reached=4 ties=1 nodes=2338 evaluations=1675"
+//   perft("<depth>|<fen>")                    gives "nodes=197281"
+//
+// Chess960 (TODO.md 6.5) as position.ts has it: the castling rooks the
+// position's own, a castling move the king on to its rook.
 
-import std.os
 import std.string
 
-extern malloc(size: int) -> ptr
-extern memset(p: ptr, c: int, n: int) -> ptr
+exports (search, perft)
 
 // ---- pieces, colours, moves
 
@@ -96,15 +103,15 @@ coordinate(m: int) -> string {
 
 // ---- the evaluation's numbers (ai.ts)
 
-const PIECE_VALUES[] = [100, 300, 300, 500, 900, 20000]
+const PIECE_VALUES: int[] = [100, 300, 300, 500, 900, 20000]
 const MATE_VALUE = 20000
 const BISHOP_PAIR_VALUE = 50
 const PHASE_MAX = 24
-const PHASE_WEIGHTS[] = [0, 1, 1, 2, 4, 0]
+const PHASE_WEIGHTS: int[] = [0, 1, 1, 2, 4, 0]
 const INF = 1000000
 
 // Per piece a value per square, a8 first, read at index ^ 56 for white (ai.ts's PIECE_SQUARE_TABLES), one flat table.
-const PST[] = [
+const PST: int[] = [
     0, 0, 0, 0, 0, 0, 0, 0,
     50, 50, 50, 50, 50, 50, 50, 50,
     10, 10, 20, 30, 30, 20, 10, 10,
@@ -160,7 +167,7 @@ const PST[] = [
     20, 30, 10, 0, 0, 10, 30, 20
 ]
 
-const KING_END[] = [
+const KING_END: int[] = [
     -50, -40, -30, -20, -20, -30, -40, -50,
     -30, -20, -10, 0, 0, -10, -20, -30,
     -30, -10, 20, 30, 30, 20, -10, -30,
@@ -214,13 +221,15 @@ struct Engine {
     history: int[4096]
     nodes: long
     evaluations: long
-    deadline: long
+    max_nodes: long                // a search given up past so many nodes (0: none)
     tt_count: int
-    tt_key: ptr                    // long[TT_SLOTS]
-    tt_depth: ptr                  // int[TT_SLOTS], -1 for an empty slot
-    tt_value: ptr
-    tt_flag: ptr
-    tt_move: ptr
+    tt_key: long[524288]           // TT_SLOTS
+    tt_depth: int[524288]          // -1 for an empty slot
+    tt_value: int[524288]
+    tt_flag: int[524288]
+    tt_move: int[524288]
+    rooks: int[4]                  // the castling rooks' squares, by castling index
+    c960: int                      // 1: a Chess960 position (position.ts's chess960)
 }
 
 var g_rand_seed: uint32 = 0x2545F491
@@ -296,9 +305,7 @@ pawn_attacks(color: int, pawns: uint64) -> uint64 {
 // ---- making one
 
 new_engine() -> *Engine {
-    raw = malloc(sizeof(Engine))
-    e = raw as *Engine
-    _z = memset(raw, 0, sizeof(Engine))
+    e = heap.new(Engine)
     uint32 x = g_rand_seed
     i = 0
     while i < RANDOM_COUNT {
@@ -329,11 +336,6 @@ new_engine() -> *Engine {
         e.king[sq] = c | ((b | c) >> 8) | ((b | c) << 8)
         sq = sq + 1
     }
-    e.tt_key = malloc(TT_SLOTS * 8)
-    e.tt_depth = malloc(TT_SLOTS * 4)
-    e.tt_value = malloc(TT_SLOTS * 4)
-    e.tt_flag = malloc(TT_SLOTS * 4)
-    e.tt_move = malloc(TT_SLOTS * 4)
     tt_clear(e)
     return e
 }
@@ -415,13 +417,12 @@ set_fen(e: *Engine, fen: string) {
     e.turn = WHITE
     if count > 0 && string.equals(string.array_get(parts, 0), "b") == 1 { e.turn = BLACK }
     e.castling = 0
-    if count > 1 {
-        c = string.array_get(parts, 1)
-        if string.contains(c, "K") == 1 { e.castling = e.castling | 1 }
-        if string.contains(c, "k") == 1 { e.castling = e.castling | 2 }
-        if string.contains(c, "Q") == 1 { e.castling = e.castling | 4 }
-        if string.contains(c, "q") == 1 { e.castling = e.castling | 8 }
-    }
+    e.rooks[0] = 7
+    e.rooks[1] = 63
+    e.rooks[2] = 0
+    e.rooks[3] = 56
+    e.c960 = 0
+    if count > 1 { read_castling(e, string.array_get(parts, 1)) }
     e.ep = -1
     if count > 2 {
         ept = string.array_get(parts, 2)
@@ -444,6 +445,53 @@ set_fen(e: *Engine, fen: string) {
     e.nmade = 0
     e.nhist = 0
     hash_from_scratch(e)
+}
+
+// FEN's castling field, as parser.ts's readCastling: KQkq (the outermost
+// rook on that side of the king), or a rook's file (X-FEN, Shredder-FEN);
+// a right with no rook there dropped; a king or rook off the usual squares
+// makes the position Chess960.
+read_castling(e: *Engine, c: string) {
+    n = string.length(c)
+    k = 0
+    while k < n {
+        ch = string.substring(c, k, k + 1)
+        k = k + 1
+        if string.equals(ch, "-") == 1 { continue }
+        lower = string.to_lower(ch)
+        color = BLACK
+        if string.equals(lower, ch) == 0 { color = WHITE }
+        base = 0
+        if color == BLACK { base = 56 }
+        king = lsb(e.bb[KING] & e.bb[6 + color])
+        if king < base || king > base + 7 { continue }
+        rook = -1
+        if string.equals(lower, "k") == 1 {
+            f = 7
+            while f > (king & 7) && rook < 0 {
+                if e.pieces[base + f] == ROOK && is_set(e.bb[6 + color], base + f) == 1 { rook = base + f }
+                f = f - 1
+            }
+        } else if string.equals(lower, "q") == 1 {
+            f = 0
+            while f < (king & 7) && rook < 0 {
+                if e.pieces[base + f] == ROOK && is_set(e.bb[6 + color], base + f) == 1 { rook = base + f }
+                f = f + 1
+            }
+        } else {
+            f = string.index_of(FILES_CH, lower)
+            if f >= 0 && e.pieces[base + f] == ROOK && is_set(e.bb[6 + color], base + f) == 1 { rook = base + f }
+        }
+        if rook < 0 || rook == king { continue }
+        ks = 0
+        if (rook & 7) > (king & 7) { ks = 1 }
+        idx = castling_index(color, ks)
+        e.castling = e.castling | (1 << idx)
+        e.rooks[idx] = rook
+        home = 0
+        if ks == 1 { home = 7 }
+        if (king & 7) != 4 || (rook & 7) != home { e.c960 = 1 }
+    }
 }
 
 // ---- the position (position.ts)
@@ -470,12 +518,9 @@ castling_index(color: int, king_side: int) -> int {
     return color + 2
 }
 
-rook_home(color: int, king_side: int) -> int {
-    i = castling_index(color, king_side)
-    if i == 0 { return 7 }
-    if i == 1 { return 63 }
-    if i == 2 { return 0 }
-    return 56
+// The castling rook's square (its home, for the right).
+rook_home(e: *Engine, color: int, king_side: int) -> int {
+    return e.rooks[castling_index(color, king_side)]
 }
 
 has_right(e: *Engine, color: int, king_side: int) -> int {
@@ -491,6 +536,7 @@ clear_right(e: *Engine, color: int, king_side: int) {
 
 can_castle(e: *Engine, color: int, king_side: int) -> int {
     if has_right(e, color, king_side) == 0 { return 0 }
+    if e.c960 == 1 { return can_castle960(e, color, king_side) }
     direction = -1
     if king_side == 1 { direction = 1 }
     k = 60
@@ -500,6 +546,46 @@ can_castle(e: *Engine, color: int, king_side: int) -> int {
     if king_side == 0 && is_set(occ, k + 3 * direction) == 1 { return 0 }
     other = 1 - color
     if is_attacked(e, other, k) == 1 || is_attacked(e, other, k + direction) == 1 || is_attacked(e, other, k + 2 * direction) == 1 { return 0 }
+    return 1
+}
+
+// Chess960 (position.ts's canCastle960): the king to g or c, the rook to f
+// or d, every square they pass or land on empty but for the two, none of
+// the king's way attacked.
+can_castle960(e: *Engine, color: int, king_side: int) -> int {
+    base = 0
+    if color == BLACK { base = 56 }
+    king = king_square(e, color)
+    rook = rook_home(e, color, king_side)
+    if e.pieces[rook] != ROOK || is_set(e.bb[6 + color], rook) == 0 || king < base || king > base + 7 { return 0 }
+    king_to = base + 2
+    rook_to = base + 3
+    if king_side == 1 {
+        king_to = base + 6
+        rook_to = base + 5
+    }
+    lo = king
+    if king_to < lo { lo = king_to }
+    if rook < lo { lo = rook }
+    if rook_to < lo { lo = rook_to }
+    hi = king
+    if king_to > hi { hi = king_to }
+    if rook > hi { hi = rook }
+    if rook_to > hi { hi = rook_to }
+    occ = occupied(e)
+    sq = lo
+    while sq <= hi {
+        if sq != king && sq != rook && is_set(occ, sq) == 1 { return 0 }
+        sq = sq + 1
+    }
+    step = 1
+    if king_to < king { step = -1 }
+    sq = king
+    while true {
+        if is_attacked(e, 1 - color, sq) == 1 { return 0 }
+        if sq == king_to { break }
+        sq = sq + step
+    }
     return 1
 }
 
@@ -628,8 +714,17 @@ generate(e: *Engine, only_captures: int) -> int {
     k = king_square(e, turn)
     add_normal_moves(e, k, e.king[k] & mask, KING, opponent)
     if only_captures == 0 {
-        if can_castle(e, turn, 1) == 1 { push_move(e, mv(k, k + 2, K_KING_CASTLE, KING, NONE)) }
-        if can_castle(e, turn, 0) == 1 { push_move(e, mv(k, k - 2, K_QUEEN_CASTLE, KING, NONE)) }
+        // Chess960: the king's move on to its rook.
+        if can_castle(e, turn, 1) == 1 {
+            to = k + 2
+            if e.c960 == 1 { to = rook_home(e, turn, 1) }
+            push_move(e, mv(k, to, K_KING_CASTLE, KING, NONE))
+        }
+        if can_castle(e, turn, 0) == 1 {
+            to = k - 2
+            if e.c960 == 1 { to = rook_home(e, turn, 0) }
+            push_move(e, mv(k, to, K_QUEEN_CASTLE, KING, NONE))
+        }
     }
     return e.sp - start
 }
@@ -667,14 +762,43 @@ promote_piece(e: *Engine, old: int, now: int, color: int, index: int) {
 }
 
 castle_rook(e: *Engine, color: int, king_side: int, back: int) {
-    home = rook_home(color, king_side)
+    home = rook_home(e, color, king_side)
     there = home + 3
     if king_side == 1 { there = home - 2 }
     if back == 0 { move_piece(e, ROOK, color, home, there) } else { move_piece(e, ROOK, color, there, home) }
 }
 
+// A Chess960 castling made (back: taken back): king and rook off their
+// squares, then on to theirs, which may be each other's.
+castle960(e: *Engine, m: int, back: int) {
+    turn = e.turn
+    base = 0
+    if turn == BLACK { base = 56 }
+    king_to = base + 2
+    rook_to = base + 3
+    if m_kind(m) == K_KING_CASTLE {
+        king_to = base + 6
+        rook_to = base + 5
+    }
+    if back == 0 {
+        capture_piece(e, KING, turn, m_from(m))
+        capture_piece(e, ROOK, turn, m_to(m))
+        uncapture_piece(e, KING, turn, king_to)
+        uncapture_piece(e, ROOK, turn, rook_to)
+    } else {
+        capture_piece(e, KING, turn, king_to)
+        capture_piece(e, ROOK, turn, rook_to)
+        uncapture_piece(e, KING, turn, m_from(m))
+        uncapture_piece(e, ROOK, turn, m_to(m))
+    }
+}
+
 update_pieces(e: *Engine, m: int) {
     turn = e.turn
+    if e.c960 == 1 && m_is_castle(m) == 1 {
+        castle960(e, m, 0)
+        return
+    }
     if m_is_capture(m) == 1 { capture_piece(e, m_captured(m), 1 - turn, m_capture_square(m)) }
     if m_is_castle(m) == 1 {
         ks = 0
@@ -687,6 +811,10 @@ update_pieces(e: *Engine, m: int) {
 
 revert_pieces(e: *Engine, m: int) {
     turn = e.turn
+    if e.c960 == 1 && m_is_castle(m) == 1 {
+        castle960(e, m, 1)
+        return
+    }
     if m_is_promotion(m) == 1 { promote_piece(e, m_promoted(m), PAWN, turn, m_to(m)) }
     move_piece(e, m_piece(m), turn, m_to(m), m_from(m))
     if m_is_castle(m) == 1 {
@@ -721,17 +849,17 @@ make_move(e: *Engine, m: int) -> int {
         clear_right(e, turn, 1)
         clear_right(e, turn, 0)
     } else if m_piece(m) == ROOK {
-        if m_from(m) == rook_home(turn, 1) {
+        if m_from(m) == rook_home(e, turn, 1) {
             clear_right(e, turn, 1)
-        } else if m_from(m) == rook_home(turn, 0) {
+        } else if m_from(m) == rook_home(e, turn, 0) {
             clear_right(e, turn, 0)
         }
     }
     other = 1 - turn
     if m_is_capture(m) == 1 && m_captured(m) == ROOK {
-        if m_capture_square(m) == rook_home(other, 1) {
+        if m_capture_square(m) == rook_home(e, other, 1) {
             clear_right(e, other, 1)
-        } else if m_capture_square(m) == rook_home(other, 0) {
+        } else if m_capture_square(m) == rook_home(e, other, 0) {
             clear_right(e, other, 0)
         }
     }
@@ -759,7 +887,7 @@ unmake_move(e: *Engine) {
     e.nhist = e.nhist - 1
 }
 
-perft(e: *Engine, depth: int) -> long {
+perft_count(e: *Engine, depth: int) -> long {
     if depth == 0 { return 1 }
     long nodes = 0
     base = e.sp
@@ -768,7 +896,7 @@ perft(e: *Engine, depth: int) -> long {
     while i < n {
         m = e.stack[base + i]
         if make_move(e, m) == 1 {
-            nodes = nodes + perft(e, depth - 1)
+            nodes = nodes + perft_count(e, depth - 1)
             unmake_move(e)
         }
         i = i + 1
@@ -961,7 +1089,11 @@ const LOWER = 1
 const UPPER = 2
 
 tt_clear(e: *Engine) {
-    _d = memset(e.tt_depth, 255, TT_SLOTS * 4)
+    i = 0
+    while i < TT_SLOTS {
+        e.tt_depth[i] = -1
+        i = i + 1
+    }
     e.tt_count = 0
 }
 
@@ -973,11 +1105,9 @@ hash_key(e: *Engine) -> long {
 
 // The slot that holds `key`, or the empty one it would go in.
 tt_slot(e: *Engine, key: long) -> int {
-    keys = e.tt_key as long[]
-    depths = e.tt_depth as int[]
     long mixed = key ^ (key >> 19)
     i = (mixed & TT_MASK) as int
-    while depths[i] >= 0 && keys[i] != key {
+    while e.tt_depth[i] >= 0 && e.tt_key[i] != key {
         i = (i + 1) & TT_MASK
     }
     return i
@@ -998,18 +1128,13 @@ from_table(v: int, ply: int) -> int {
 tt_store(e: *Engine, key: long, depth: int, value: int, flag: int, move: int, ply: int) {
     if e.tt_count >= TABLE_MAX { tt_clear(e) }
     i = tt_slot(e, key)
-    depths = e.tt_depth as int[]
-    if depths[i] >= 0 && depths[i] > depth { return }
-    if depths[i] < 0 { e.tt_count = e.tt_count + 1 }
-    keys = e.tt_key as long[]
-    values = e.tt_value as int[]
-    flags = e.tt_flag as int[]
-    moves = e.tt_move as int[]
-    keys[i] = key
-    depths[i] = depth
-    values[i] = to_table(value, ply)
-    flags[i] = flag
-    moves[i] = move
+    if e.tt_depth[i] >= 0 && e.tt_depth[i] > depth { return }
+    if e.tt_depth[i] < 0 { e.tt_count = e.tt_count + 1 }
+    e.tt_key[i] = key
+    e.tt_depth[i] = depth
+    e.tt_value[i] = to_table(value, ply)
+    e.tt_flag[i] = flag
+    e.tt_move[i] = move
 }
 
 // ---- move ordering (ai.ts's order and scoreMove)
@@ -1077,7 +1202,7 @@ var g_out_of_time: int = 0
 
 tick(e: *Engine) {
     e.nodes = e.nodes + 1
-    if (e.nodes & 255) == 0 && e.deadline > 0 && os.now_monotonic_ms() > e.deadline { g_out_of_time = 1 }
+    if e.max_nodes > 0 && e.nodes > e.max_nodes { g_out_of_time = 1 }
 }
 
 side_eval(e: *Engine) -> int {
@@ -1149,18 +1274,14 @@ negamax(e: *Engine, depth: int, alpha_in: int, beta: int, ply: int) -> int {
     if g_out_of_time == 1 { return 0 }
     key = hash_key(e)
     slot = tt_slot(e, key)
-    depths = e.tt_depth as int[]
     table_move = 0
-    if depths[slot] >= 0 {
-        moves_tt = e.tt_move as int[]
-        table_move = moves_tt[slot]
-        if depths[slot] >= depth {
-            values = e.tt_value as int[]
-            flags = e.tt_flag as int[]
-            v = from_table(values[slot], ply)
-            if flags[slot] == EXACT { return v }
-            if flags[slot] == LOWER && v >= beta { return beta }
-            if flags[slot] == UPPER && v <= alpha { return alpha }
+    if e.tt_depth[slot] >= 0 {
+        table_move = e.tt_move[slot]
+        if e.tt_depth[slot] >= depth {
+            v = from_table(e.tt_value[slot], ply)
+            if e.tt_flag[slot] == EXACT { return v }
+            if e.tt_flag[slot] == LOWER && v >= beta { return beta }
+            if e.tt_flag[slot] == UPPER && v <= alpha { return alpha }
         }
     }
     alpha0 = alpha
@@ -1240,12 +1361,11 @@ reset_search(e: *Engine) {
 // The search ai.ts's Thinking runs (all at once): iterative deepening, a
 // root move at a time, the moves as good as the best found as such, one of
 // them chosen by the hash and the seed. Gives (best, value to white,
-// depth reached, ties); `deadline_ms` (0 for none) cuts it short with the
+// depth reached, ties); `max_nodes` (0 for none) cuts it short with the
 // depth before.
-search(e: *Engine, depth: int, seed: uint32, deadline_ms: long) -> (int, int, int, int) {
+search_root(e: *Engine, depth: int, seed: uint32, max_nodes: long) -> (int, int, int, int) {
     reset_search(e)
-    e.deadline = 0
-    if deadline_ms > 0 { e.deadline = os.now_monotonic_ms() + deadline_ms }
+    e.max_nodes = max_nodes
     white = 0
     if e.turn == WHITE { white = 1 }
     // the root's legal moves, in order, kept below the stack's working part
@@ -1332,36 +1452,86 @@ search(e: *Engine, depth: int, seed: uint32, deadline_ms: long) -> (int, int, in
     return best, best_value, reached, ties_n
 }
 
-// ---- the program
+// ---- what the page calls (exports)
 
-main() {
-    e = new_engine()
-    command = os.args_get(1)
-    fen = os.args_get(2)
-    depth, _de = string.to_int(os.args_get(3))
+var g_engine: ptr = null
+
+engine_() -> *Engine {
+    if g_engine == null { g_engine = new_engine() as ptr }
+    return g_engine as *Engine
+}
+
+// The legal move written `text` ("e2e4", "e7e8q"; a Chess960 castling as
+// the king on to its rook) in the position now, or 0.
+find_move(e: *Engine, text: string) -> int {
+    base = e.sp
+    n = generate(e, 0)
+    found = 0
+    i = 0
+    while i < n && found == 0 {
+        m = e.stack[base + i]
+        if string.equals(coordinate(m), text) == 1 && make_move(e, m) == 1 {
+            unmake_move(e)
+            found = m
+        }
+        i = i + 1
+    }
+    e.sp = base
+    return found
+}
+
+// "<depth>|<seed>|<fen>|<moves>": the game from its FEN, its moves played,
+// then the search; its line, or why not.
+search(arg: string) -> (string, string) {
+    parts = string.split(arg, "|")
+    count = string.array_size(parts)
+    if count < 3 {
+        string.array_free(parts)
+        return "", "search takes \"<depth>|<seed>|<fen>|<moves>\""
+    }
+    depth, de = string.to_int(string.array_get(parts, 0))
+    s, se = string.to_int(string.array_get(parts, 1))
+    fen = string.array_get(parts, 2)
+    moves = ""
+    if count > 3 { moves = string.array_get(parts, 3) }
+    if de != "" || se != "" || depth < 1 || depth > 64 {
+        string.array_free(parts)
+        return "", "search: a depth of 1 to 64 and a seed, not \"${arg}\""
+    }
+    e = engine_()
     set_fen(e, fen)
-    if string.equals(command, "perft") == 1 {
-        t0 = os.now_monotonic_ms()
-        n = perft(e, depth)
-        println("nodes=${n} ms=${os.now_monotonic_ms() - t0}")
-        return
+    played = string.split(moves, " ")
+    np = string.array_size(played)
+    i = 0
+    while i < np {
+        text = string.array_get(played, i)
+        i = i + 1
+        if string.length(text) == 0 { continue }
+        m = find_move(e, text)
+        if m == 0 {
+            string.array_free(played)
+            string.array_free(parts)
+            return "", "search: ${text} is not a legal move there"
+        }
+        _ok = make_move(e, m)
     }
-    uint32 seed = 0
-    if os.args_count() > 4 {
-        s, _se = string.to_int(os.args_get(4))
-        seed = s as uint32
-    }
-    runs = 1
-    if string.equals(command, "bench") == 1 { runs = 3 }
-    r = 0
-    while r < runs {
-        t0 = os.now_monotonic_ms()
-        best, value, reached, ties = search(e, depth, seed, 0)
-        ms = os.now_monotonic_ms() - t0
-        mvtext = "none"
-        if best != 0 { mvtext = coordinate(best) }
-        println("best=${mvtext} value=${value} reached=${reached} ties=${ties} nodes=${e.nodes} evaluations=${e.evaluations} ms=${ms}")
-        set_fen(e, fen)
-        r = r + 1
-    }
+    string.array_free(played)
+    string.array_free(parts)
+    uint32 seed = s as uint32
+    best, value, reached, ties = search_root(e, depth, seed, 0)
+    mvtext = "none"
+    if best != 0 { mvtext = coordinate(best) }
+    return "best=${mvtext} value=${value} reached=${reached} ties=${ties} nodes=${e.nodes} evaluations=${e.evaluations}", ""
+}
+
+// "<depth>|<fen>": the leaf nodes `depth` moves deep.
+perft(arg: string) -> (string, string) {
+    at = string.index_of(arg, "|")
+    if at < 0 { return "", "perft takes \"<depth>|<fen>\"" }
+    depth, de = string.to_int(string.substring(arg, 0, at))
+    if de != "" || depth < 0 || depth > 8 { return "", "perft: a depth of 0 to 8" }
+    e = engine_()
+    set_fen(e, string.substring(arg, at + 1, string.length(arg)))
+    n = perft_count(e, depth)
+    return "nodes=${n}", ""
 }

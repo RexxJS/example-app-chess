@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-58 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+60 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -67,6 +67,8 @@ the bus and the MCP server give back.
 | [`GETAIDIFFICULTY()`](#getaidifficulty) | The computer player's level | 1 to 4 |
 | [`SETAISIDE(side)`](#setaiside) | Which side the computer plays | the side |
 | [`AIMOVE()`](#aimove) | The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work | the move in SAN |
+| [`ENGINE()`](#engine) | Which engine the computer thinks with: the one in Aether (app/native/engine.ae) when this sae was built with it (the app's own, sae's tools/saehost.sh), else the TypeScript one | "native" or "typescript" |
+| [`AISEARCH([depth], [engine])`](#aisearch) | The engine's search of the position, to its end (the game is not changed): the two engines give the same line for a position and a depth, node for node | {best: the move in coordinate notation, "" for none, value: to white in centipawns, reached: the depth done, ties, nodes, evaluations, engine} |
 | [`ANALYZE([depth])`](#analyze) | What the computer makes of the position: its value, the best move and the line it expects (the game is not changed) | {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes} |
 | [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
 | [`SETCLOCK(control, [white], [black])`](#setclock) | Sets the clocks: the side to move's runs from now, a move adds the increment to the side that made it, and the side whose flag falls loses on time (a draw when the other cannot mate); a new game starts them again | the control, as "5+3"; "" for none |
@@ -456,6 +458,27 @@ AIMOVE()
 ```
 
 The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work. Gives the move in SAN.
+
+### ENGINE
+
+```rexx
+ENGINE()
+```
+
+Which engine the computer thinks with: the one in Aether (app/native/engine.ae) when this sae was built with it (the app's own, sae's tools/saehost.sh), else the TypeScript one. Gives "native" or "typescript".
+
+### AISEARCH
+
+```rexx
+AISEARCH([depth], [engine])
+```
+
+The engine's search of the position, to its end (the game is not changed): the two engines give the same line for a position and a depth, node for node. Gives {best: the move in coordinate notation, "" for none, value: to white in centipawns, reached: the depth done, ties, nodes, evaluations, engine}.
+
+| Parameter | Kind | |
+|---|---|---|
+| `depth` | number, optional | half-moves, 1 to 6; the computer's level if left out |
+| `engine` | text, optional | native or typescript; the one ENGINE() says if left out |
 
 ### ANALYZE
 

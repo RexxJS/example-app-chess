@@ -12,7 +12,7 @@ import { RANK_CHARACTERS, getIndex, getIndexFromAlgebraic, getPieceCharacter } f
 import { LEVELS, legalMovesOf } from "./game.ts";
 import type { Game, State } from "./game.ts";
 import { DESCRIBED, signature } from "./described.ts";
-import { analyzeOnce, canSlice, thinkOnce } from "./think.ts";
+import { analyzeOnce, canSlice, hasNative, searchNative, searchTypescript, thinkOnce } from "./think.ts";
 import type { Analysis } from "./analysis.ts";
 import { bookMove, bookMoves } from "./book.ts";
 import { timeText } from "./clock.ts";
@@ -137,6 +137,17 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   AIMOVE: (exec, game) => {
     if (!canSlice() || game.isOver() || (game.book && bookMove(game) !== null)) return must(exec, "ai.move").output;
     return thinkOnce(game).then((move) => must(exec, "ai.move", move === null ? {} : { move }).output);
+  },
+  // The engine's search of the position, its line as both engines give it,
+  // to compare them (TODO.md 4.4): the native one when this sae has it.
+  ENGINE: () => (hasNative() ? "native" : "typescript"),
+  AISEARCH: (_e, game, depth, engine) => {
+    const d = depth === undefined || text(depth) === "" ? game.aiLevel : Number(depth);
+    if (!Number.isInteger(d) || d < 1 || d > 6) throw new Error(`${text(depth)} is not a depth (1 to 6)`);
+    if (game.isOver()) throw new Error(`the game is over (${game.status()}, ${game.result()})`);
+    const which = engine === undefined || text(engine) === "" ? (hasNative() ? "native" : "typescript") : text(engine).trim().toLowerCase();
+    if (which !== "native" && which !== "typescript") throw new Error(`${text(engine)} is not an engine (native or typescript)`);
+    return (which === "native" ? searchNative(game, d) : searchTypescript(game, d)).then((l) => ({ ...l, best: l.best ?? "" }));
   },
   // A position's analysis as a stem: in a page, in slices (think.ts), as AIMOVE.
   ANALYZE: (exec, game, depth) => {

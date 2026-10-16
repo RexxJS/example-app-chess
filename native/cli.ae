@@ -1,0 +1,51 @@
+// native/cli.ae: the engine in Aether (app/native/engine.ae) as a program, for
+// tests/native/check.sh and a person at a terminal. The engine is a module
+// that needs no capability; this program has the clock and the arguments.
+//
+//   ae build native/cli.ae -o target/chess-engine
+//   chess-engine perft "<fen>" <depth>
+//   chess-engine search "<fen>" <depth> [seed] [moves...]
+//     best=e2e4 value=35 reached=4 ties=1 nodes=2338 evaluations=1675 ms=12
+//   chess-engine bench "<fen>" <depth>        (search, timed, three times)
+
+import std.os
+import std.string
+import engine
+
+main() {
+    command = os.args_get(1)
+    fen = os.args_get(2)
+    depth = os.args_get(3)
+    if string.equals(command, "perft") == 1 {
+        t0 = os.now_monotonic_ms()
+        r, err = engine.perft("${depth}|${fen}")
+        if err != "" {
+            println("error: ${err}")
+            return
+        }
+        println("${r} ms=${os.now_monotonic_ms() - t0}")
+        return
+    }
+    seed = "0"
+    if os.args_count() > 4 { seed = os.args_get(4) }
+    moves = ""
+    i = 5
+    while i < os.args_count() {
+        moves = string.concat(moves, " ${os.args_get(i)}")
+        i = i + 1
+    }
+    runs = 1
+    if string.equals(command, "bench") == 1 { runs = 3 }
+    k = 0
+    while k < runs {
+        t0 = os.now_monotonic_ms()
+        r, err = engine.search("${depth}|${seed}|${fen}|${moves}")
+        ms = os.now_monotonic_ms() - t0
+        if err != "" {
+            println("error: ${err}")
+            return
+        }
+        println("${r} ms=${ms}")
+        k = k + 1
+    }
+}

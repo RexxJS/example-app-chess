@@ -1,4 +1,4 @@
-// The reference the native engine (native/engine.ae, TODO.md 4.4) is held
+// The reference the native engine (app/native/engine.ae, TODO.md 4.4) is held
 // to: the TypeScript engine's search on a suite of positions, each line
 // what it gives (the move, its value to white, the depth reached, how many
 // moves tied, the nodes searched and the positions evaluated). These
@@ -22,6 +22,9 @@ const SUITE: [string, number, number][] = [
   ["4k3/p7/8/1q6/2N5/8/P7/4K3 w - - 0 1", 3, 0],
   ["8/P6k/8/8/8/8/8/K7 w - - 0 1", 3, 0],
   ["R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1", 3, 0],
+  // Chess960 (TODO.md 6.5): start position 0, and a position whose castling is the king on to its rook.
+  ["bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1", 3, 0],
+  ["rk5r/ppp2ppp/8/8/8/8/PPP2PPP/RK5R w KQkq - 0 1", 3, 0],
 ];
 
 for (const [fen, depth, seed] of SUITE) {
@@ -43,3 +46,5 @@ for (const [fen, depth, seed] of SUITE) {
 // expect: best=c4d6 value=279 reached=3 ties=1 nodes=274 evaluations=226
 // expect: best=a7a8q value=901 reached=3 ties=1 nodes=115 evaluations=96
 // expect: best=none value=0 reached=0 ties=0 nodes=0 evaluations=0
+// expect: best=d1e3 value=49 reached=3 ties=2 nodes=690 evaluations=592
+// expect: best=b1a1 value=9 reached=3 ties=1 nodes=671 evaluations=571

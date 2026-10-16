@@ -8,7 +8,7 @@ import { Commands } from "../commands.ts";
 import type { Outcome, Params } from "../commands.ts";
 import { BOARD_SIZES, stateOf } from "../game.ts";
 import type { State } from "../game.ts";
-import { think } from "../think.ts";
+import { hasNative, think, thinkNative } from "../think.ts";
 import { bookMove } from "../book.ts";
 import { timeText } from "../clock.ts";
 import { puzzleLine } from "./puzzles.ts";
@@ -114,6 +114,19 @@ export class ChessView {
       return;
     }
     const who = `${g.turn()}, level ${g.aiLevel}`;
+    // The engine in Aether when this sae has it (think.ts): one call, off the UI thread.
+    if (hasNative()) {
+      const native = thinkNative(g, (move, fresh) => {
+        if (this.#thought !== native) return;
+        this.#thought = null;
+        this.thinking.set("");
+        if (fresh) this.run("ai.move", move === null ? {} : { move });
+      });
+      this.#thought = native;
+      this.#auto = auto;
+      this.thinking.set(`The computer (${who}) is thinking, natively`);
+      return;
+    }
     const thought = think(g, (move, fresh, t) => {
       if (this.#thought !== thought) return;
       this.#thought = null;

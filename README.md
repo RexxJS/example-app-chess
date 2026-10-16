@@ -15,7 +15,7 @@ in stages, each step one tested commit: [TODO.md](TODO.md).
 | [`CHESS_COMMANDS.md`](CHESS_COMMANDS.md) | **The REXX reference**: every function, the old `ADDRESS CHESS` lines, the control bus and the MCP server; generated from `app/chess/described.ts` by `tools/gen-commands.mjs`, so it cannot drift. | MIT |
 | [`rexx/`](rexx/) | REXX scripts that drive the running app over sae's control bus (`ADDRESS CHESS`, `rexx/chess-address.js`, run by RexxJS's CLI): the old iframe demo's scripts and a game by the control functions. | MIT |
 | [`mcp/`](mcp/) | An MCP server: an AI client plays and drives the running app over the control bus (`chess_move`, `chess_board`, `chess_call`, `chess_run_program`, `chess_list_commands`; `--tools=json\|rexx\|all`). | MIT |
-| [`native/`](native/) | **The engine in Aether** (`engine.ae`, TODO.md 4.4): the same moves, node for node, as `app/chess/ai.ts`, compiled; a command-line program for now (`perft`, `search`, `bench`), checked by `tests/native/check.sh`. The page cannot call it yet (TODO.md 4.4). | MIT, Kaj Björklund 2013 (a port) |
+| [`app/native/`](app/native/), [`native/`](native/) | **The engine in Aether** (`app/native/engine.ae`, TODO.md 4.4): the same moves, node for node, as `app/chess/ai.ts`, compiled; a sae native module the page calls as `natives.engine.search` on the app's own sae (`../sae/tools/saehost.sh app`; sae's `docs/natives.md`), and `native/cli.ae` the program (`perft`, `search`, `bench`) `tests/native/check.sh` runs. | MIT, Kaj Björklund 2013 (a port) |
 | [`tests/`](tests/) | `headless/` (the model, on sae's lowerer harness), `specs/` (the page, through sae-driver), `lib/` (the specs' driver verbs). | MIT |
 | `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md); the old `CHESS_COMMANDS.md` is in history before 2.7 of TODO.md). It stays until the sae app has taken in what it did, then goes to history. | MIT |
 
@@ -74,6 +74,14 @@ driver the specs use):
 
 ```bash
 ../sae/target/build/bin/sae --app app
+```
+
+That is sae's own build: the computer thinks in TypeScript, in slices.
+The app's own sae has the engine in Aether compiled in, and thinks with it:
+
+```bash
+../sae/tools/saehost.sh app target/chess-host
+target/chess-host/target/build/bin/sae --app app
 ```
 
 `--control-bus` after it switches on the control bus, so other programs on

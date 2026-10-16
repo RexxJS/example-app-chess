@@ -1,0 +1,129 @@
+// spec_app_chess_native.ae — the page and the engine in Aether (TODO.md
+// 4.4): the chess app on its own sae (sae's tools/saehost.sh, with
+// app/native/engine.ae compiled in: sae's docs/natives.md). The page finds
+// natives.engine and thinks with it; AISEARCH over the control bus gives,
+// for each position of tests/headless/chess_native_reference.ts, the
+// native engine's line and the TypeScript engine's (in the page, in
+// slices), and both are that file's "// expect:" lines, node for node, as
+// the headless test and tests/native/check.sh have them; AIMOVE and the
+// page's computer move by it.
+//   ./run-tests.sh spec_app_chess_native
+import std.spec
+import std.string
+import std.fs
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+// The reference's line as AISEARCH's JSON has it: best=g1f3 value=0 ... -> "best":"g1f3","value":0,...
+json_of_(line: string, engine: string) -> string {
+    parts = string.split(line, " ")
+    n = string.array_size(parts)
+    out = ""
+    i = 0
+    while i < n {
+        kv = string.array_get(parts, i)
+        i = i + 1
+        at = string.index_of(kv, "=")
+        k = string.substring(kv, 0, at)
+        v = string.substring(kv, at + 1, string.length(kv))
+        if k == "best" {
+            if v == "none" { v = "" }
+            out = "\"best\":\"${v}\""
+        } else {
+            out = "${out},\"${k}\":${v}"
+        }
+    }
+    string.array_free(parts)
+    return "${out},\"engine\":\"${engine}\""
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the engine in Aether, from the page") {
+        spec.it("the app's own sae: the page thinks natively") callback {
+            spec.assert_true(b.wait_for_console("sae: native engine: search,perft"), "the module compiled in")
+            spec.assert_true(b.wait_for_console("chess: the engine is native"), "the page found it")
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, got = command_(key, "ENGINE()")
+            spec.assert_contains(got, "\"result\":\"native\"", "ENGINE()")
+        }
+        spec.it("AISEARCH: the native line and the TypeScript one, each the headless reference's") callback {
+            text, _e = fs.read("${os_getenv("CHESS_ROOT")}/tests/headless/chess_native_reference.ts")
+            lines = string.split(text, "\n")
+            n = string.array_size(lines)
+            suite = 0
+            // The SUITE entries ([fen, depth, seed]) in order, then the expect lines in order.
+            i = 0
+            while i < n {
+                l = string.array_get(lines, i)
+                i = i + 1
+                if string.starts_with(l, "  [\"") == 1 && string.ends_with(l, "],") == 1 {
+                    suite = suite + 1
+                }
+            }
+            _u, key = courier_()
+            entry = 0
+            i = 0
+            checked = 0
+            while i < n {
+                l = string.array_get(lines, i)
+                i = i + 1
+                if string.starts_with(l, "  [\"") == 0 || string.ends_with(l, "],") == 0 { continue }
+                entry = entry + 1
+                q2 = string.index_of(string.substring(l, 4, string.length(l)), "\"") + 4
+                fen = string.substring(l, 4, q2)
+                rest = string.substring(l, q2 + 3, string.length(l) - 2)
+                comma = string.index_of(rest, ",")
+                depth = string.trim(string.substring(rest, 0, comma))
+                seed = string.trim(string.substring(rest, comma + 1, string.length(rest)))
+                // Its expect line: the entry-th "// expect: " line.
+                want = ""
+                e = 0
+                j = 0
+                while j < n && want == "" {
+                    m = string.array_get(lines, j)
+                    j = j + 1
+                    if string.starts_with(m, "// expect: ") == 1 {
+                        e = e + 1
+                        if e == entry { want = string.substring(m, 11, string.length(m)) }
+                    }
+                }
+                if seed != "0" { continue }
+                _s0, set = command_(key, "SETPOSITION(\"${fen}\")")
+                if string.contains(set, "\"success\":true") == 0 {
+                    spec.assert_contains(set, "\"success\":true", "set up ${fen}")
+                    continue
+                }
+                if string.contains(want, "best=none") == 1 { continue }
+                _s1, nat = command_(key, "AISEARCH(${depth}, \"native\")")
+                spec.assert_contains(nat, json_of_(want, "native"), "native: ${fen} at ${depth}")
+                _s2, ts = command_(key, "AISEARCH(${depth}, \"typescript\")")
+                spec.assert_contains(ts, json_of_(want, "typescript"), "typescript in the page: ${fen} at ${depth}")
+                checked = checked + 1
+            }
+            string.array_free(lines)
+            spec.assert_true(checked >= 12, "the suite's positions compared (${checked} of ${suite})")
+        }
+        spec.it("AIMOVE at level 4 from the start: the native engine's move, made") callback {
+            _u, key = courier_()
+            _s, _n = command_(key, "NEWGAME()")
+            _s1, _l = command_(key, "SETAIDIFFICULTY(4)")
+            _s2, mv = command_(key, "AIMOVE()")
+            spec.assert_contains(mv, "\"result\":\"Nf3\"", "g1f3, the reference's line at depth 4")
+            spec.assert_true(c.wait_moves("Nf3"), "on the page")
+        }
+        spec.it("the page's computer player thinks natively") callback {
+            b.click("New game")
+            b.click("Level 3")
+            b.click("Play as black")
+            spec.assert_true(b.wait_for_text("black to move: in_progress"), "the computer, playing white, moved: black's move")
+            spec.assert_true(b.has_text("Moves: none yet") == 0, "a move in the list")
+        }
+    }
+    return spec.run_summary(fw)
+}
