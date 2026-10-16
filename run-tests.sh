@@ -12,7 +12,8 @@
 #   SAE_DIR=/elsewhere/sae ./run-tests.sh    another sae checkout
 #
 # headers: tools/check-headers.sh, every port under app/chess names its
-# origin (LICENSING.md). headless: tests/headless/*.ts, the engine, the game and the commands with
+# origin (LICENSING.md). commands-doc: CHESS_COMMANDS.md is what
+# tools/gen-commands.mjs makes of LISTCOMMANDS(1) (node). headless: tests/headless/*.ts, the engine, the game and the commands with
 # no ui, run by sae's lowerer harness (sae/lower/run-tests.sh --mod) on
 # sae's QuickJS. The specs (tests/specs/) drive the app in sae-driver
 # through sae's tests/run_spec.sh, with this repo's tests/lib first on the
@@ -43,6 +44,7 @@ rm -rf "$LOGS" "$T/chess-appdata" "$T/chess-bus-appdata" "$T/chess-rexx-appdata"
 # label | environment (space-separated NAME=value) | command
 TABLE="
 headers||headers
+commands-doc||commands-doc
 headless||headless
 spec_app_chess|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
@@ -69,7 +71,7 @@ for line in $TABLE; do
 '; continue
     fi
     # The MCP server runs on node.
-    case "$label" in mcp|spec_app_chess_mcp)
+    case "$label" in mcp|spec_app_chess_mcp|commands-doc)
         if ! command -v node >/dev/null 2>&1; then
             echo "FAIL $label (needs node)"
             fail=$((fail + 1)); failed="$failed $label"; IFS='
@@ -79,6 +81,7 @@ for line in $TABLE; do
     set -- $cmd
     case "$1" in
         headers) set -- "$ROOT/tools/check-headers.sh" ;;
+        commands-doc) set -- node --no-warnings "$ROOT/tools/gen-commands.mjs" --check ;;
         mcp) set -- node --test "$ROOT/tests/mcp/" ;;
         headless) set -- env SAE_LOWER_OUT="$T/lower-tests" "$SAE/lower/run-tests.sh" --mod "$ROOT/tests/headless" ;;
         spec) set -- env SAE_TEST_LIB_DIR="$ROOT/tests/lib" \

@@ -48,7 +48,7 @@ export async function runChess(code: string, host: ScriptHost, say: (line: strin
 
 // The old app's command names (CHESS_COMMANDS.md), each as the function it
 // is now, and whether the old gave its answer as JSON text.
-const OLD: Readonly<Record<string, { fn: string; json: boolean; args?: (p: Record<string, string>) => unknown[] }>> = {
+export const OLD: Readonly<Record<string, { fn: string; json: boolean; args?: (p: Record<string, string>) => unknown[] }>> = {
   "move": { fn: "MOVE", json: false, args: (p) => [p.from, p.to, p.promotion] },
   "get-board": { fn: "GETBOARD", json: false },
   "get-moves": { fn: "GETMOVES", json: true },

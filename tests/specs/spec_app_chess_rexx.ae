@@ -79,6 +79,17 @@ main() {
             spec.assert_true(c.wait_moves("e4 e5 Bc4 Nc6 Qh5 Nf6"), "the page after the UNDO")
             spec.assert_true(b.wait_for_text("white to move: in_progress"), "and whose move")
         }
+        spec.it("CHESS_COMMANDS.md's examples, as the reference has them") callback {
+            out, status = rexx_("reference-examples.rexx", "")
+            spec.assert_eq(status, 0, "exits 0")
+            spec.assert_eq(string.contains(out, "Error executing script"), 0, "no error")
+            spec.assert_contains(out, "Status:  {\"status\":\"in_progress\",\"toPlay\":\"black\"", "the opening's status")
+            spec.assert_contains(out, "illegal: e7 to e4 is not a legal move for black", "the refused move, with why")
+            spec.assert_contains(out, "1 move back", "UNDO's count")
+            spec.assert_contains(out, "FEN: rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", "the FEN after REDO")
+            spec.assert_contains(out, "22 legal moves; the first: a5", "the legal moves as a stem")
+            spec.assert_true(c.wait_moves("e4 c5 Nf3"), "the page")
+        }
     }
     return spec.run_summary(fw)
 }

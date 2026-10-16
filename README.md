@@ -12,10 +12,11 @@ in stages, each step one tested commit: [TODO.md](TODO.md).
 | Folder | What it is | Licence |
 |---|---|---|
 | [`app/`](app/) | **The chess app, current.** A sae app in sae's TypeScript dialect: `app.json` (its manifest), `chess.ts` (the page), `chess/` (the game with no ui: the engine ported from `src/`, then the game, its commands and its REXX functions). | MIT |
+| [`CHESS_COMMANDS.md`](CHESS_COMMANDS.md) | **The REXX reference**: every function, the old `ADDRESS CHESS` lines, the control bus and the MCP server; generated from `app/chess/described.ts` by `tools/gen-commands.mjs`, so it cannot drift. | MIT |
 | [`rexx/`](rexx/) | REXX scripts that drive the running app over sae's control bus (`ADDRESS CHESS`, `rexx/chess-address.js`, run by RexxJS's CLI): the old iframe demo's scripts and a game by the control functions. | MIT |
 | [`mcp/`](mcp/) | An MCP server: an AI client plays and drives the running app over the control bus (`chess_move`, `chess_board`, `chess_call`, `chess_run_program`, `chess_list_commands`; `--tools=json\|rexx\|all`). | MIT |
 | [`tests/`](tests/) | `headless/` (the model, on sae's lowerer harness), `specs/` (the page, through sae-driver), `lib/` (the specs' driver verbs). | MIT |
-| `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md), [CHESS_COMMANDS.md](CHESS_COMMANDS.md)). It stays until the sae app has taken in what it did, then goes to history. | MIT |
+| `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md); the old `CHESS_COMMANDS.md` is in history before 2.7 of TODO.md). It stays until the sae app has taken in what it did, then goes to history. | MIT |
 
 ## The sae app
 
@@ -68,7 +69,10 @@ Chess 'MOVE("e2", "e4")'` sends one request, and REXX scripts reach it by
 ```
 
 runs the header check (`tools/check-headers.sh`: every port names its
-origin, [LICENSING.md](LICENSING.md)), the headless tests and the specs,
+origin, [LICENSING.md](LICENSING.md)), the reference check (`CHESS_COMMANDS.md`
+is what `node --no-warnings tools/gen-commands.mjs` makes of
+`LISTCOMMANDS(1)`; run it to regenerate), the headless tests, the MCP
+server's protocol tests and the specs,
 one line of PASS or FAIL each, with
 logs under `target/run-tests/`. `./run-tests.sh headless` runs only the
 headless tests; `./run-tests.sh spec_app_chess` only that spec.
