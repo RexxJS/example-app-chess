@@ -144,6 +144,24 @@ eq("a move with no to: RC 1, the old message", await run('ADDRESS CHESS "move fr
 c.run("game.new");
 eq("a command line of commands.ts works too", await run('ADDRESS CHESS "game.move san=Nf3"\nSAY RC RESULT\nADDRESS CHESS "game.move san=Nf3"\nSAY RC RESULT'), ["0 Nf3", "1 Nf3 is not a legal move for black"]);
 
+// A game is a program: the recorder's script (GAMESCRIPT) played on a new
+// game gives the same position, a promotion and a set-up start included.
+const rec = new Commands();
+for (const t of ["e4", "d5", "exd5", "Nf6", "Bb5+", "c6"]) rec.run(`game.move san=${t}`);
+const recorded = String(rec.run("game.script").output);
+eq("the recorder's script", recorded.split("\n").slice(0, 4), ["/* A game, recorded by the chess app: run it to play it again */", "r = NEWGAME()", 'r = MOVE("e2", "e4")   /* 1. e4 */', 'r = MOVE("d7", "d5")   /* 1... d5 */']);
+const replay = new Commands();
+replay.run("game.move san=a4");
+eq("run on another game, the same position", [(await replay.script(recorded, () => {})).ok, replay.game.fen(), replay.game.sanList()], [true, rec.game.fen(), rec.game.sanList()]);
+const promo = new Commands();
+promo.run('game.setPosition fen="7k/P7/8/8/8/8/8/K7 w - - 0 1"');
+promo.run("game.move from=a7 to=a8 promotion=rook");
+promo.run("game.resign");
+const promoScript = String(promo.run("game.script").output);
+eq("from a set position, a promotion and a resignation", promoScript.split("\n").slice(1, 4), ['r = SETPOSITION("7k/P7/8/8/8/8/8/K7 w - - 0 1")', 'r = MOVE("a7", "a8", "rook")   /* 1. a8=R+ */', 'r = RESIGN("black")']);
+const promoReplay = new Commands();
+eq("and replayed", [(await promoReplay.script(promoScript, () => {})).ok, promoReplay.game.fen(), promoReplay.game.result()], [true, promo.game.fen(), "1-0"]);
+
 // CHESSCOMMAND: an ADDRESS CHESS line as a function, as the bus sends one.
 c.run("game.new");
 eq("CHESSCOMMAND runs an old line, and gives what it gave", [(await ask0('CHESSCOMMAND("move from=e2 to=e4")')).output, (await ask0('CHESSCOMMAND("get-position-fen")')).output],
@@ -207,6 +225,10 @@ eq("and after it, a request is one step as before", [(await ask('MOVESAN("Nf3");
 // expect: ok an unknown command: RC 2
 // expect: ok a move with no to: RC 1, the old message
 // expect: ok a command line of commands.ts works too
+// expect: ok the recorder's script
+// expect: ok run on another game, the same position
+// expect: ok from a set position, a promotion and a resignation
+// expect: ok and replayed
 // expect: ok CHESSCOMMAND runs an old line, and gives what it gave
 // expect: ok its refusal is the request's error
 // expect: ok the functions by name

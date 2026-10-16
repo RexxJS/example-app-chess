@@ -187,6 +187,10 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.script", label: "The game as a script", params: [], journaled: false,
+    run: (game) => ({ ok: true, message: `the game as a script: ${game.made.length} moves`, output: game.toScript() }),
+  },
+  {
     id: "game.export", label: "Save the game", params: [], journaled: false,
     run: (game) => ({ ok: true, message: `the game as its file: ${game.made.length} moves`, output: JSON.stringify(game.toFile(), null, 2) }),
   },

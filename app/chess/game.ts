@@ -316,6 +316,29 @@ export class Game {
     return this.position.getColorAtOrNull(index);
   }
 
+  // ---- the game as a program (the script panel's recorder)
+
+  /**
+   * The game as a REXX program that plays it again: a new game (or the
+   * position it started from), then a MOVE line a move, in the control
+   * functions' own terms, with the SAN as a comment. A game is a program:
+   * run it in the script panel, over the bus or in RexxJS's CLI
+   * (ADDRESS CHESS), and the same position comes out.
+   */
+  toScript(): string {
+    const lines = ["/* A game, recorded by the chess app: run it to play it again */"];
+    lines.push(this.startFen === START_FEN ? "r = NEWGAME()" : `r = SETPOSITION("${this.startFen}")`);
+    const pieceName: Record<string, string> = { q: "queen", r: "rook", b: "bishop", n: "knight" };
+    this.made.forEach((m, i) => {
+      const c = m.move.getCoordinate(), ply = i + 1;
+      const promotion = c.length > 4 ? `, "${pieceName[c[4]]}"` : "";
+      lines.push(`r = MOVE("${c.slice(0, 2)}", "${c.slice(2, 4)}"${promotion})   /* ${Math.ceil(ply / 2)}${ply % 2 ? "." : "..."} ${m.san} */`);
+    });
+    if (this.resigned) lines.push(`r = RESIGN("${this.resigned}")`);
+    else if (this.drawAgreed) lines.push("r = OFFERDRAW()");
+    return lines.join("\n") + "\n";
+  }
+
   // ---- the game as a file
 
   /**

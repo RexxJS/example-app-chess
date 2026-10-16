@@ -1,0 +1,43 @@
+// spec_app_chess_recorder.ae — the script panel's recorder
+// (app/chess/view/scriptpanel.ts, game.script): moves made on the board
+// written as a REXX program of MOVE lines; a new game; the program run;
+// the same position. A game is a program.
+//   ./run-tests.sh spec_app_chess_recorder
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the recorder") {
+        spec.it("a game played on the board, written as a program, plays again to the same position") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            c.click_square("c7", 0)
+            c.click_square("c5", 0)
+            c.drag_square("g1", "f3", 0)
+            c.click_square("d7", 0)
+            c.click_square("d6", 0)
+            spec.assert_true(c.wait_moves("e4 c5 Nf3 d6"), "four moves on the board")
+            b.click("Game as script")
+            spec.assert_true(b.wait_for_text("the game so far as a script: 4 moves"), "written")
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, got = command_(key, "GAMESCRIPT()")
+            spec.assert_contains(got, "r = MOVE(\\\"e2\\\", \\\"e4\\\")   /* 1. e4 */", "a MOVE line a move")
+            spec.assert_contains(got, "r = MOVE(\\\"d7\\\", \\\"d6\\\")   /* 2... d6 */", "the last")
+            b.click("New game")
+            spec.assert_true(c.wait_moves(""), "a new game")
+            spec.assert_true(c.wait_piece("f3", 0, ""), "the board at the start")
+            b.click("Run script")
+            spec.assert_true(c.wait_moves("e4 c5 Nf3 d6"), "the program played it again")
+            spec.assert_true(c.wait_fen("rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3"), "the same position")
+            spec.assert_true(c.wait_piece("f3", 0, "♘"), "on the board")
+        }
+    }
+    return spec.run_summary(fw)
+}

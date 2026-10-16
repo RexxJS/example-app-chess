@@ -98,6 +98,7 @@ export const CONTROL: Readonly<Record<string, Control>> = {
     const s = state(exec);
     return { white: s.capturedByWhite.join(""), black: s.capturedByBlack.join(""), balance: s.balance };
   },
+  GAMESCRIPT: (exec) => must(exec, "game.script").output,
   EXPORTGAME: (exec) => must(exec, "game.export").output,
   IMPORTGAME: (exec, _g, file) => must(exec, "game.import", { text: text(file) }).output,
   GETTURN: (exec) => state(exec).turn,

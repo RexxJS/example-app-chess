@@ -62,6 +62,8 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
     "Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone", "how many moves are made now"),
   GETCAPTURED: fn([], "The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9)",
     "{white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead}"),
+  GAMESCRIPT: fn([], "The game as a REXX program that plays it again: NEWGAME() (or SETPOSITION of where it started), then a MOVE line a move",
+    "the program's text, a line a move"),
   EXPORTGAME: fn([], "The game as its file (what Save writes): where it started, its moves, who the computer plays, its level, the flip",
     "the file's JSON: {format: \"sae-chess-game\", version: 1, start, moves, aiLevel, aiSide, flipped}"),
   IMPORTGAME: fn([p("file", "json", "a game file, as EXPORTGAME gives one")], "Opens a game from its file's JSON, in place of this one (what Open reads)", "how many moves it has"),
