@@ -121,6 +121,21 @@ eq("the fifty-move rule said", m.statusText(), "a draw by the fifty-move rule: f
 m.newGame(); m.move(m.find("e4")!); m.resign();
 eq("a resignation said", m.statusText(), "black resigned: white wins (1-0)");
 
+// The game as a file, and back.
+const f = new Game();
+for (const t of ["e4", "e5", "Nf3"]) f.move(f.find(t)!);
+f.aiLevel = 3; f.aiSide = "black"; f.flipped = true;
+eq("its file", f.toFile(), { format: "sae-chess-game", version: 1, start: START_FEN, moves: ["e2e4", "e7e5", "g1f3"], aiLevel: 3, aiSide: "black", flipped: true });
+const r = new Game();
+r.fromFile(JSON.stringify(f.toFile()));
+eq("read back: the moves, the settings, a move at a time to undo", [r.sanList(), r.aiLevel, r.aiSide, r.flipped, r.steps, r.canRedo()], [["e4", "e5", "Nf3"], 3, "black", true, [1, 1, 1], false]);
+r.fromFile('{"format": "sae-chess-game", "version": 1, "start": "7k/P7/8/8/8/8/8/K7 w - - 0 1", "moves": ["a7a8q"], "resigned": "black", "aiLevel": 2, "aiSide": "none", "flipped": false}');
+eq("from a set position, a resignation kept", [r.sanList(), r.result(), r.startFen], [["a8=Q+"], "1-0", "7k/P7/8/8/8/8/8/K7 w - - 0 1"]);
+throws("not JSON", () => r.fromFile("nope"), Error, "a game file is JSON: unexpected token: 'nope'");
+throws("not a game file", () => r.fromFile("{}"), Error, 'a game file says "format": "sae-chess-game"');
+throws("a move that is not legal, said which", () => r.fromFile('{"format": "sae-chess-game", "version": 1, "start": "' + START_FEN + '", "moves": ["e2e4", "e2e4"]}'), Error, "the game file's move 2, e2e4, is not legal there");
+eq("and the game as it was after a refusal", r.sanList(), ["a8=Q+"]);
+
 // expect: ok a new game: the start position, white to move, nothing to undo or redo
 // expect: ok twenty legal moves
 // expect: ok moves found by coordinate or SAN, made with their SAN
@@ -169,3 +184,10 @@ eq("a resignation said", m.statusText(), "black resigned: white wins (1-0)");
 // expect: ok insufficient material said
 // expect: ok the fifty-move rule said
 // expect: ok a resignation said
+// expect: ok its file
+// expect: ok read back: the moves, the settings, a move at a time to undo
+// expect: ok from a set position, a resignation kept
+// expect: ok not JSON
+// expect: ok not a game file
+// expect: ok a move that is not legal, said which
+// expect: ok and the game as it was after a refusal

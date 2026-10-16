@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-32 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+34 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -47,6 +47,8 @@ the bus and the MCP server give back.
 | [`GETGAMEINFO()`](#getgameinfo) | Everything about the game at once | {status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board} |
 | [`GOTOMOVE(ply)`](#gotomove) | Goes to a move of the game, by undo or redo (a request's moves stay together); the moves after it can be redone | how many moves are made now |
 | [`GETCAPTURED()`](#getcaptured) | The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9) | {white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead} |
+| [`EXPORTGAME()`](#exportgame) | The game as its file (what Save writes): where it started, its moves, who the computer plays, its level, the flip | the file's JSON: {format: "sae-chess-game", version: 1, start, moves, aiLevel, aiSide, flipped} |
+| [`IMPORTGAME(file)`](#importgame) | Opens a game from its file's JSON, in place of this one (what Open reads) | how many moves it has |
 | [`GETTURN()`](#getturn) | Whose move it is | "white" or "black" |
 | [`GETRESULT()`](#getresult) | The result | "1-0", "0-1", "1/2-1/2", or "*" while the game goes on |
 | [`PIECEAT(square)`](#pieceat) | What stands on a square | its FEN letter: K Q R B N P for white, k q r b n p for black, "" for none |
@@ -234,6 +236,26 @@ GETCAPTURED()
 ```
 
 The pieces taken since the start position, and the material balance (pawn 1, knight and bishop 3, rook 5, queen 9). Gives {white: the FEN letters of the black pieces white has taken, black: the white pieces black has taken, balance: above 0 when white is ahead}.
+
+### EXPORTGAME
+
+```rexx
+EXPORTGAME()
+```
+
+The game as its file (what Save writes): where it started, its moves, who the computer plays, its level, the flip. Gives the file's JSON: {format: "sae-chess-game", version: 1, start, moves, aiLevel, aiSide, flipped}.
+
+### IMPORTGAME
+
+```rexx
+IMPORTGAME(file)
+```
+
+Opens a game from its file's JSON, in place of this one (what Open reads). Gives how many moves it has.
+
+| Parameter | Kind | |
+|---|---|---|
+| `file` | json | a game file, as EXPORTGAME gives one |
 
 ### GETTURN
 

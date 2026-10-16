@@ -98,6 +98,8 @@ export const CONTROL: Readonly<Record<string, Control>> = {
     const s = state(exec);
     return { white: s.capturedByWhite.join(""), black: s.capturedByBlack.join(""), balance: s.balance };
   },
+  EXPORTGAME: (exec) => must(exec, "game.export").output,
+  IMPORTGAME: (exec, _g, file) => must(exec, "game.import", { text: text(file) }).output,
   GETTURN: (exec) => state(exec).turn,
   GETRESULT: (exec) => state(exec).result,
   PIECEAT: (_e, game, sq) => game.pieceAt(getIndexFromAlgebraic(square(sq, "PIECEAT"))),

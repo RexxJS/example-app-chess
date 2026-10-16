@@ -1,0 +1,122 @@
+// spec_app_chess_controls.ae — the buttons and the menu bar
+// (app/chess/view/toolbar.ts), Open and Save (a game file through
+// documents: headless, each picker takes the answer the spec queued), and
+// the script panel (app/chess/view/scriptpanel.ts) running a game in REXX.
+//   ./run-tests.sh spec_app_chess_controls
+import std.spec
+import std.string
+import std.fs
+import std.os (os_getenv)
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+tmp_dir() -> string {
+    t = os_getenv("TMPDIR")
+    if t == null { return "/tmp" }
+    while string.ends_with(t, "/") == 1 { t = string.substring(t, 0, string.length(t) - 1) }
+    return t
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    dir = "${tmp_dir()}/sae-chess-files"
+    _m = fs.mkdir_p(dir)
+    _d = fs.delete("${dir}/saved.chess.json")
+    spec.describe(fw, "the buttons") {
+        spec.it("Undo, Redo, Flip, Resign, Offer draw and New game run their commands") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            spec.assert_true(c.wait_moves("e4"), "a move by clicks")
+            b.click("Undo")
+            spec.assert_true(c.wait_moves(""), "Undo")
+            b.click("Redo")
+            spec.assert_true(c.wait_moves("e4"), "Redo")
+            b.click("Flip")
+            spec.assert_true(b.wait_for_text("black at the bottom"), "Flip, said")
+            spec.assert_true(c.wait_piece("e8", 1, "♚"), "and the board turned")
+            b.click("Flip")
+            spec.assert_true(c.wait_piece("e8", 0, "♚"), "and back")
+            b.click("Resign")
+            spec.assert_true(b.wait_for_text("black resigns: 1-0"), "Resign: the side to move")
+            b.click("Undo")
+            spec.assert_true(b.wait_for_text("white to move"), "undone with its move")
+            b.click("Offer draw")
+            spec.assert_true(b.wait_for_text("a draw, agreed (1/2-1/2)"), "Offer draw")
+            b.click("New game")
+            spec.assert_true(c.wait_moves(""), "New game")
+            spec.assert_true(b.wait_for_text("white to move: in_progress"), "the game goes on")
+        }
+        spec.it("who plays and the computer's level") callback {
+            spec.assert_true(b.wait_for_text("You play both sides"), "no computer at first")
+            b.click("Play as white")
+            spec.assert_true(b.wait_for_text("You play white; the computer plays black, at level 2"), "as white")
+            b.click("Level 4")
+            spec.assert_true(b.wait_for_text("You play white; the computer plays black, at level 4"), "level 4")
+            b.click("Play as black")
+            spec.assert_true(b.wait_for_text("You play black; the computer plays white, at level 4"), "as black")
+            b.click("Computer plays both")
+            spec.assert_true(b.wait_for_text("The computer plays both sides, at level 4"), "both")
+            b.click("Play both sides")
+            spec.assert_true(b.wait_for_text("You play both sides"), "back to two people")
+        }
+    }
+    spec.describe(fw, "the menu bar") {
+        spec.it("has the commands by menu, and an item runs its command") callback {
+            body = uidriver.menus_body()
+            spec.assert_contains(body, "\"New game\",\"Open...\",\"Save...\",\"Resign\",\"Offer draw\"", "Game")
+            spec.assert_contains(body, "\"Undo\",\"Redo\"", "Edit")
+            spec.assert_contains(body, "\"Flip board\"", "Board")
+            spec.assert_contains(body, "\"Play as white\",\"Play as black\",\"Play both sides\",\"Computer plays both\",\"Level 1\"", "Computer")
+            uidriver.menu_activate(uidriver.menu_handle_with("Flip board"), "Flip board")
+            spec.assert_true(c.wait_piece("e8", 1, "♚"), "Flip board from the menu")
+            uidriver.menu_activate(uidriver.menu_handle_with("Flip board"), "Flip board")
+            spec.assert_true(c.wait_piece("e8", 0, "♚"), "and back")
+            uidriver.menu_activate(uidriver.menu_handle_with("Level 3"), "Level 3")
+            spec.assert_true(b.wait_for_text("the computer plays at level 3"), "Level 3 from the menu")
+        }
+    }
+    spec.describe(fw, "Open and Save") {
+        spec.it("Save writes the game where the person chose; Open reads it back") callback {
+            c.click_square("d2", 0)
+            c.click_square("d4", 0)
+            c.click_square("d7", 0)
+            c.click_square("d5", 0)
+            spec.assert_true(c.wait_moves("d4 d5"), "two moves")
+            uidriver.answer_prompt("save", "${dir}/saved.chess.json")
+            b.click("Save")
+            spec.assert_true(b.wait_for_console("chess: saved saved.chess.json"), "saved")
+            body, _e = fs.read("${dir}/saved.chess.json")
+            spec.assert_contains(body, "\"format\": \"sae-chess-game\"", "a game file")
+            spec.assert_contains(body, "\"d2d4\"", "with its moves")
+            b.click("New game")
+            spec.assert_true(c.wait_moves(""), "a new game")
+            uidriver.answer_prompt("open", "${dir}/saved.chess.json")
+            b.click("Open")
+            spec.assert_true(b.wait_for_console("chess: opened saved.chess.json"), "opened")
+            spec.assert_true(c.wait_moves("d4 d5"), "its moves back")
+            spec.assert_true(c.wait_piece("d5", 0, "♟"), "on the board")
+        }
+    }
+    spec.describe(fw, "the script panel") {
+        spec.it("runs a game in REXX: its SAY lines shown, the board after it, one Undo for it all") callback {
+            b.click("New game")
+            b.set_field_by("REXX script", "ADDRESS CHESS \"move from=e2 to=e4\"\nr = MOVESAN(\"e5\")\nr = MOVE(\"g1\", \"f3\")\nh = GETMOVEHISTORYSAN()\nSAY \"played\" h.0 \"moves\"\nADDRESS CHESS \"get-position-fen\"\nSAY RESULT")
+            b.click("Run script")
+            spec.assert_true(b.wait_for_console("chess: say played 3 moves"), "its first SAY")
+            spec.assert_true(b.wait_for_text("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"), "its second, on the page")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3"), "the moves made")
+            spec.assert_true(c.wait_piece("f3", 0, "♘"), "the board after it")
+            b.click("Undo")
+            spec.assert_true(c.wait_moves(""), "one Undo takes the whole script back")
+        }
+        spec.it("a script that fails says why") callback {
+            b.set_field_by("REXX script", "r = MOVE(\"e2\", \"e5\")")
+            b.click("Run script")
+            spec.assert_true(b.wait_for_console("chess: the script failed: e2 to e5 is not a legal move for white"), "said")
+        }
+    }
+    return spec.run_summary(fw)
+}

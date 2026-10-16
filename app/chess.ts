@@ -14,10 +14,14 @@ import { ChessView } from "./chess/view/view.ts";
 import { board } from "./chess/view/board.ts";
 import { promotionBar } from "./chess/view/promotion.ts";
 import { sidebar } from "./chess/view/sidebar.ts";
+import { menuBar, toolbar } from "./chess/view/toolbar.ts";
+import { scriptPanel } from "./chess/view/scriptpanel.ts";
 
 const v = new ChessView();
 
+menuBar(v);
 ui.text("Chess");
+toolbar(v);
 ui.hstack(() => {
   board(v);
   sidebar(v);
@@ -33,6 +37,7 @@ bind(ui.text_wrapped("", 720), computed(() => {
   return g && g.sans.length ? `Moves: ${g.sans.join(" ")}` : "Moves: none yet";
 }, v.game));
 bind(ui.text(""), computed(() => `FEN: ${v.game.value?.fen ?? ""}`, v.game));
+scriptPanel(v);
 v.refresh();
 
 // The control bus (an installed app started with --control-bus): another

@@ -1,6 +1,8 @@
 {
   "name": "Chess",
   "start": "/chess",
+  "width": 1000,
+  "height": 900,
   "capabilities": {
     "documents": {},
     "controlBus": {

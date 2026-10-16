@@ -38,7 +38,9 @@ app/
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
                     click or drag to move), promotion.ts, sidebar.ts
-                    (the status, what is taken, the move list)
+                    (the status, what is taken, the move list),
+                    toolbar.ts (the buttons and the menu bar, Open and
+                    Save), scriptpanel.ts (a REXX script run in the page)
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move

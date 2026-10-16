@@ -39,6 +39,22 @@ export interface Made {
   readonly san: string;
 }
 
+/** The game file's format name. */
+export const GAME_FORMAT = "sae-chess-game";
+
+/** A game as its file has it (Game.toFile). */
+export interface GameFile {
+  readonly format: string;
+  readonly version: number;
+  readonly start: string;
+  readonly moves: readonly string[];
+  readonly resigned?: Side;
+  readonly drawAgreed?: boolean;
+  readonly aiLevel: number;
+  readonly aiSide: AiSide;
+  readonly flipped: boolean;
+}
+
 /** A game put away whole: enough to restore it (saved/restore). */
 export interface Snapshot {
   readonly startFen: string;
@@ -298,6 +314,48 @@ export class Game {
 
   colorAt(index: number): Color | null {
     return this.position.getColorAtOrNull(index);
+  }
+
+  // ---- the game as a file
+
+  /**
+   * The game as its file's JSON: where it started, its moves (coordinate
+   * notation), its result when it was ended by resigning or agreement, who
+   * the computer plays, its level and the flip. Its undo steps are not
+   * kept: an opened game undoes a move at a time.
+   */
+  toFile(): GameFile {
+    return {
+      format: GAME_FORMAT, version: 1, start: this.startFen, moves: this.moveList(),
+      ...(this.resigned ? { resigned: this.resigned } : {}), ...(this.drawAgreed ? { drawAgreed: true } : {}),
+      aiLevel: this.aiLevel, aiSide: this.aiSide, flipped: this.flipped,
+    };
+  }
+
+  /** The game a file holds, in place of this one; throws saying what is wrong with it, and then this game is as it was. */
+  fromFile(text: string): void {
+    let f: Partial<GameFile>;
+    try {
+      f = JSON.parse(text) as Partial<GameFile>;
+    } catch (e) {
+      throw new Error(`a game file is JSON: ${(e as Error).message}`);
+    }
+    if (!f || typeof f !== "object" || f.format !== GAME_FORMAT) throw new Error(`a game file says "format": "${GAME_FORMAT}"`);
+    if (f.version !== 1) throw new Error(`a game file of version ${f.version} is not one this app reads (1)`);
+    const g = new Game(typeof f.start === "string" ? f.start : START_FEN);
+    for (const [i, text] of (Array.isArray(f.moves) ? f.moves : []).entries()) {
+      const move = g.find(String(text));
+      if (!move) throw new Error(`the game file's move ${i + 1}, ${text}, is not legal there`);
+      g.move(move);
+    }
+    if (f.resigned === "white" || f.resigned === "black") g.resign(f.resigned);
+    else if (f.drawAgreed === true) g.agreeDraw();
+    if (LEVELS.includes(Number(f.aiLevel))) g.aiLevel = Number(f.aiLevel);
+    if (f.aiSide === "white" || f.aiSide === "black" || f.aiSide === "both" || f.aiSide === "none") g.aiSide = f.aiSide;
+    g.flipped = f.flipped === true;
+    this.restore(g.saved());
+    // Read in: nothing to redo, nothing to undo past its own moves.
+    this.redoSteps = [];
   }
 
   // ---- put away and put back

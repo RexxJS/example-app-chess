@@ -187,6 +187,21 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "game.export", label: "Save the game", params: [], journaled: false,
+    run: (game) => ({ ok: true, message: `the game as its file: ${game.made.length} moves`, output: JSON.stringify(game.toFile(), null, 2) }),
+  },
+  {
+    id: "game.import", label: "Open a game", params: ["text"], journaled: true,
+    run: (game, p) => {
+      try {
+        game.fromFile(p.text);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      return { ok: true, message: `opened a game of ${game.made.length} moves: ${game.turn()} to move`, output: game.made.length };
+    },
+  },
+  {
     id: "game.state", label: "The game's state", params: [], journaled: false,
     run: (game) => ({ ok: true, message: `${game.turn()} to move, ${game.status()}`, output: stateOf(game) }),
   },
