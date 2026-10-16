@@ -5,7 +5,7 @@
 // is at the bottom.
 
 exports(wait_ready, wait_moves, wait_fen, square_x, square_y, square_rgb, wait_square_rgb, piece_at, wait_piece, click_square,
-        drag_square, board_wh, grid_diff, has_text_starting, wait_text_starting, LIGHT, DARK, LAST_LIGHT, LAST_DARK, CHECK, SELECTED, TARGET, DARK_LIGHT, DARK_DARK)
+        drag_square, board_wh, grid_diff, has_text_starting, wait_text_starting, field_id, LIGHT, DARK, LAST_LIGHT, LAST_DARK, CHECK, SELECTED, TARGET, DARK_LIGHT, DARK_DARK)
 
 import std.string
 import std.json
@@ -24,6 +24,23 @@ const DARK_DARK = 5926522     // #5a6e7a, and its dark square
 
 // The page is up: its title text is shown. 1 when it is, 0 after the wait.
 wait_ready() -> int { return b.wait_for_text("Chess") }
+
+// The id of the text field whose placeholder is `placeholder`, 0 for none
+// (the page has several: the move, a FEN, a game's name).
+field_id(placeholder: string) -> int {
+    v, jerr = json.parse(uidriver.get_body("/widgets"))
+    if jerr != "" || v == null { return 0 }
+    id = 0
+    n = json.json_array_size(v)
+    i = 0
+    while i < n {
+        w = json.json_array_get_raw(v, i)
+        if string.equals(uidriver.field_str(w, "type"), "textfield") == 1 && string.equals(uidriver.field_str(w, "placeholder"), placeholder) == 1 { id = uidriver.field_int(w, "id") }
+        i = i + 1
+    }
+    json.json_free(v)
+    return id
+}
 
 // 1 when some text widget's text starts with `prefix`.
 has_text_starting(prefix: string) -> int {

@@ -89,13 +89,13 @@ main() {
         spec.it("a move typed into the field, coordinate or SAN; a wrong one refused and left to correct") callback {
             spec.assert_true(c.wait_moves(""), "a new game")
             b.set_field_by("Type a move: e2e4 or Nf3", "e2e4")
-            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            uidriver.post_ok("/widget/${c.field_id("Type a move: e2e4 or Nf3")}/submit", "Return in the move field")
             spec.assert_true(c.wait_moves("e4"), "e2e4 typed")
             b.set_field_by("Type a move: e2e4 or Nf3", "Nf6")
-            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            uidriver.post_ok("/widget/${c.field_id("Type a move: e2e4 or Nf3")}/submit", "Return in the move field")
             spec.assert_true(c.wait_moves("e4 Nf6"), "Nf6 typed")
             b.set_field_by("Type a move: e2e4 or Nf3", "Qh9")
-            uidriver.post_ok("/widget/${uidriver.widget_id_last_of("textfield", "")}/submit", "Return in the move field")
+            uidriver.post_ok("/widget/${c.field_id("Type a move: e2e4 or Nf3")}/submit", "Return in the move field")
             spec.assert_true(b.wait_for_text("Qh9 is not a legal move for white"), "refused, said")
             spec.assert_true(c.wait_moves("e4 Nf6"), "no move made")
         }

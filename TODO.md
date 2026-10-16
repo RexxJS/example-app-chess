@@ -105,7 +105,7 @@ first.
 | # | Step | Tests prove | REXX |
 |---|---|---|---|
 | 5.1 | ~~PGN: a game written (tags, SAN moves, result) and read (one game, comments and variations skipped but kept), through sae's `documents`~~ (done 2026-10-16: `pgn.ts`; what a reader skips (comments, `;` comments, nested variations, NAGs, `!?`) is kept as the text after its move and written again after it while the game's moves are those read; a result the moves do not reach is a resignation or an agreed draw; SetUp and FEN for a set-up position; Save PGN and Open (which reads the app's file or a PGN); the PGN standard's own sample game and Morphy's Opera game read) | headless `chess_pgn`: round-trips, the standard sample games | `EXPORTPGN()`, `IMPORTPGN(text)` |
-| 5.2 | FEN set-up: a position typed or pasted, the board from it; the start position editor (place pieces) | spec | `SETPOSITION(fen)` already |
+| 5.2 | ~~FEN set-up: a position typed or pasted, the board from it; the start position editor (place pieces)~~ (done 2026-10-16: `view/setup.ts`, a FEN field and Set position; Edit position: a palette of the twelve pieces and Empty, a click puts the piece (or takes it off when it is there), Clear board, Start position, the side to move, Done (`setup.ts`'s FEN, castling where king and rook are at home: game.setPosition, which refuses what is no position and says why) and Cancel; the computer does not move while the board is being set up) | spec | `SETPOSITION(fen)` already |
 | 5.3 | A game saved and opened as the app's own file (the move list, who plays, the level), autosave of the game in progress | spec `spec_app_chess_files` | `SAVEGAME`, `OPENGAME` |
 
 ## Stage 6: beyond the old app

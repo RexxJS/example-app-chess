@@ -1,0 +1,63 @@
+// spec_app_chess_setup.ae — setting a position up (app/chess/view/
+// setup.ts, TODO.md 5.2): a FEN pasted into the field and set; the
+// position editor: the board cleared, kings and a queen put on it from the
+// palette, a piece taken off again, black to move, Done, the game at that
+// position; one with a king missing refused with the reason, and Cancel
+// leaving the game as it was.
+//   ./run-tests.sh spec_app_chess_setup
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+
+const SCHOLAR = "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "a position set up") {
+        spec.it("a FEN pasted and set: the board from it") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            b.set_field_by("Paste a position (FEN)", SCHOLAR)
+            b.click("Set position")
+            spec.assert_true(c.wait_fen(SCHOLAR), "the game at that position")
+            spec.assert_true(c.wait_piece("h5", 0, "♕"), "on the board")
+        }
+        spec.it("the editor: cleared, pieces put on and taken off, black to move, Done") callback {
+            b.click("Edit position")
+            spec.assert_true(b.wait_for_text("Setting up: white to move; putting ♔"), "editing, the king picked")
+            b.click("Clear board")
+            spec.assert_true(c.wait_piece("h5", 0, ""), "the board cleared")
+            c.click_square("e1", 0)
+            spec.assert_true(c.wait_piece("e1", 0, "♔"), "the white king put on e1")
+            b.click("Put ♚")
+            c.click_square("e8", 0)
+            b.click("Put ♕")
+            c.click_square("d1", 0)
+            c.click_square("a1", 0)
+            spec.assert_true(c.wait_piece("a1", 0, "♕"), "a second queen")
+            c.click_square("a1", 0)
+            spec.assert_true(c.wait_piece("a1", 0, ""), "and taken off again")
+            b.click("Black to move")
+            spec.assert_true(b.wait_for_text("Setting up: black to move; putting ♕"), "black to move")
+            spec.assert_true(c.wait_fen(SCHOLAR), "the game itself not changed yet")
+            b.click("Done")
+            spec.assert_true(c.wait_fen("4k3/8/8/8/8/8/8/3QK3 b - - 0 1"), "the game at the set-up")
+            spec.assert_true(b.wait_for_text("black to move: in_progress"), "black to move")
+            spec.assert_true(b.wait_for_text_gone("Setting up: black to move; putting ♕"), "out of the editor")
+        }
+        spec.it("a set-up that is no position is refused; Cancel keeps the game") callback {
+            b.click("Edit position")
+            b.click("Clear board")
+            b.click("Put ♔")
+            c.click_square("e1", 0)
+            b.click("Done")
+            spec.assert_true(b.wait_for_text("not a position yet: FEN: one king each, not 1 white and 0 black"), "refused, and why")
+            b.click("Cancel")
+            spec.assert_true(b.wait_for_text("set-up cancelled: the game as it was"), "cancelled")
+            spec.assert_true(c.wait_piece("d1", 0, "♕"), "the game's board back")
+            spec.assert_true(c.wait_fen("4k3/8/8/8/8/8/8/3QK3 b - - 0 1"), "and its position")
+        }
+    }
+    return spec.run_summary(fw)
+}

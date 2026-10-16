@@ -34,7 +34,7 @@ app/
                     and described.ts (the REXX functions, each described),
                     script.ts (REXX scripts: ADDRESS CHESS, the old
                     commands by their old names), pgn.ts (PGN written
-                    and read), line.ts (a command
+                    and read), setup.ts (a board set up, as a FEN), line.ts (a command
                     line), rexxjs.js (RexxJS, generated), ai.ts (the
                     computer player: alpha-beta, ported from src/ai.js),
                     think.ts (its search in slices, a timer apart),
@@ -46,7 +46,8 @@ app/
                     toolbar.ts (the buttons and the menu bar, Open and
                     Save), analysis.ts (Analyse, Hint),
                     scriptpanel.ts (a REXX script run in the page,
-                    and the recorder), keyboard.ts (a move typed), looks.ts
+                    and the recorder), keyboard.ts (a move typed), setup.ts (a
+                    position pasted, or set up on the board), looks.ts
                     (the light and dark themes)
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"

@@ -42,7 +42,7 @@ done
 
 T=$ROOT/target
 LOGS=$T/run-tests
-rm -rf "$LOGS" "$T/chess-appdata" "$T/chess-bus-appdata" "$T/chess-board-appdata" "$T/chess-moves-appdata" "$T/chess-sidebar-appdata" "$T/chess-controls-appdata" "$T/chess-recorder-appdata" "$T/chess-looks-appdata" "$T/chess-rexx-appdata" "$T/chess-mcp-appdata" "$T/chess-thinking-appdata" "$T/chess-analysis-appdata"; mkdir -p "$LOGS"
+rm -rf "$LOGS" "$T/chess-appdata" "$T/chess-bus-appdata" "$T/chess-board-appdata" "$T/chess-moves-appdata" "$T/chess-sidebar-appdata" "$T/chess-controls-appdata" "$T/chess-recorder-appdata" "$T/chess-looks-appdata" "$T/chess-rexx-appdata" "$T/chess-mcp-appdata" "$T/chess-thinking-appdata" "$T/chess-analysis-appdata" "$T/chess-setup-appdata"; mkdir -p "$LOGS"
 # label | environment (space-separated NAME=value) | command
 TABLE="
 headers||headers
@@ -58,6 +58,7 @@ spec_app_chess_recorder|SAE_TEST_FLAGS=--control-bus AETHER_UI_HEADLESS=1 SAE_AP
 spec_app_chess_looks|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-looks-appdata SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_looks
 spec_app_chess_thinking|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-thinking-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_thinking
 spec_app_chess_analysis|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-analysis-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_analysis
+spec_app_chess_setup|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-setup-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess_setup
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
 mcp||mcp

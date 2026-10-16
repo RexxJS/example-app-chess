@@ -10,6 +10,8 @@ import { stateOf } from "../game.ts";
 import type { State } from "../game.ts";
 import { think } from "../think.ts";
 import { analysisOf, lineText } from "../analysis.ts";
+import { START_PIECES, fenOf } from "../setup.ts";
+import type { Turn } from "../setup.ts";
 import type { Thought } from "../think.ts";
 
 /** What the board shows: a piece's FEN letter (or "") per square index 0-63, and the marks. */
@@ -31,6 +33,10 @@ export class ChessView {
   readonly status = state("");          // what the last command said
   /** A pawn's move to the last rank, waiting for the piece it becomes; null when none is. */
   readonly promoting = state<{ from: number; to: number } | null>(null);
+  /** The position editor (setup.ts): the board being set up and the side to move, or null when not editing. */
+  readonly editing = state<{ pieces: string[]; turn: Turn } | null>(null);
+  /** The piece the editor puts on a square clicked (a FEN letter), "" for emptying it. */
+  readonly brush = state("K");
   /** What the computer is doing: "" when it is not thinking, else how far it has got. */
   readonly thinking = state("");
   /** The analysis line: the computer's value of the position and the line it expects, or a hint; "" for none. */
@@ -162,7 +168,7 @@ export class ChessView {
       this.#thought = null;
       this.thinking.set("");
     }
-    if (!this.#thought && this.computerToMove() && !g.canRedo() && g.key() !== this.#pausedKey) this.think(true);
+    if (!this.#thought && !this.editing.value && this.computerToMove() && !g.canRedo() && g.key() !== this.#pausedKey) this.think(true);
     // An analysis (or its line) of a position the game has left: dropped, and the line cleared.
     if (this.#analysedKey && this.#analysedKey !== g.key()) {
       this.#analysing?.cancel();
@@ -170,6 +176,50 @@ export class ChessView {
       this.#analysedKey = "";
       this.analysis.set("");
     }
+  }
+
+  // ---- the position editor (TODO.md 5.2)
+
+  /** Into the editor, from the position on the board now; any thinking stops. */
+  editPosition(): void {
+    if (this.#thought) this.stopThinking();
+    const g = this.cmds.game;
+    this.editing.set({ pieces: Array.from({ length: 64 }, (_, i) => g.pieceAt(i)), turn: g.turn() === "white" ? "w" : "b" });
+    this.#selected = -1;
+    this.refresh();
+    this.status.set("setting up a position: pick a piece, click the squares, then Done");
+  }
+
+  /** One of the editor's buttons: Clear board, Start position, White to move, Black to move, Done, Cancel. */
+  editAction(label: string): void {
+    const e = this.editing.value;
+    if (!e) return;
+    if (label === "Cancel") {
+      this.editing.set(null);
+      this.refresh();
+      this.status.set("set-up cancelled: the game as it was");
+      return;
+    }
+    if (label === "Done") {
+      const o = this.cmds.execute("game.setPosition", { fen: fenOf(e.pieces, e.turn) });
+      if (o.ok) this.editing.set(null);
+      this.refresh();
+      this.status.set(o.ok ? o.message : `not a position yet: ${o.message}`);
+      return;
+    }
+    if (label === "Clear board") this.editing.set({ ...e, pieces: new Array(64).fill("") });
+    else if (label === "Start position") this.editing.set({ pieces: [...START_PIECES], turn: "w" });
+    else if (label === "White to move" || label === "Black to move") this.editing.set({ ...e, turn: label === "White to move" ? "w" : "b" });
+    this.refresh();
+  }
+
+  // A square clicked in the editor: the brush's piece put there (or taken off, when it is there already).
+  #put(index: number): void {
+    const e = this.editing.value!;
+    const pieces = [...e.pieces];
+    pieces[index] = pieces[index] === this.brush.value ? "" : this.brush.value;
+    this.editing.set({ ...e, pieces });
+    this.refresh();
   }
 
   /** The square picked to move from (-1 for none): its legal targets are shown. */
@@ -191,6 +241,10 @@ export class ChessView {
    * instead, the same square drops it, and any other square is refused.
    */
   clickSquare(index: number): void {
+    if (this.editing.value) {
+      this.#put(index);
+      return;
+    }
     if (this.promoting.value || this.#busy()) return;
     const from = this.#selected;
     if (from >= 0 && from !== index && this.targetsOf(from).includes(index)) {
@@ -213,7 +267,7 @@ export class ChessView {
 
   /** A piece dragged from `from` and let go over `to` (-1: off the board). */
   dropOn(from: number, to: number): void {
-    if (this.promoting.value || this.#busy() || to < 0 || to === from || !this.ownPiece(from)) return;
+    if (this.editing.value || this.promoting.value || this.#busy() || to < 0 || to === from || !this.ownPiece(from)) return;
     if (this.targetsOf(from).includes(to)) this.moveTo(from, to);
     else {
       this.select(-1);
@@ -272,9 +326,10 @@ export class ChessView {
   refresh(): void {
     const g = this.cmds.game;
     const s = stateOf(g);
-    const pieces = Array.from({ length: 64 }, (_, i) => g.pieceAt(i));
-    const last = s.lastMove;
-    const king = s.check ? pieces.indexOf(s.turn === "white" ? "K" : "k") : -1;
+    const editing = this.editing.value;
+    const pieces = editing ? editing.pieces : Array.from({ length: 64 }, (_, i) => g.pieceAt(i));
+    const last = editing ? null : s.lastMove;
+    const king = s.check && !editing ? pieces.indexOf(s.turn === "white" ? "K" : "k") : -1;
     batch(() => {
       this.game.set(s);
       this.shown.set({
