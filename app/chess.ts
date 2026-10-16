@@ -15,7 +15,7 @@ import { Commands } from "./chess/commands.ts";
 import { filesPanel } from "./chess/view/files.ts";
 import { boardPanel } from "./chess/view/board.ts";
 import { promotionBar } from "./chess/view/promotion.ts";
-import { sidebar } from "./chess/view/sidebar.ts";
+import { clockButtons, sidebar } from "./chess/view/sidebar.ts";
 import { menuBar, toolbar } from "./chess/view/toolbar.ts";
 import { scriptPanel } from "./chess/view/scriptpanel.ts";
 import { moveField } from "./chess/view/keyboard.ts";
@@ -44,6 +44,7 @@ ui.vstack(() => {
   // The room the board has: the window less the sidebar and what is above it.
   v.measure = () => ({ beside: ui.width(beside), above: ui.height(above) });
   promotionBar(v);
+  clockButtons(v);
   analysisPanel(v);
   moveField(v);
   setupPanel(v);
@@ -64,6 +65,8 @@ v.refresh();
 // The window's size, now and at every change (sae's ui.on_resize): the
 // board follows it, resized in place (vg.resize).
 ui.on_resize((w: number, h: number) => v.windowSized(w, h));
+// The clocks run a few times a second (clock.ts); a flag that falls ends the game.
+ui.timer(100, () => v.tickClock());
 if (resumed >= 0) {
   v.status.set(`the game in progress is back: ${resumed} moves`);
   print(`chess: resumed a game of ${resumed} moves`);

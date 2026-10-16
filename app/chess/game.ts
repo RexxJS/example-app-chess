@@ -27,7 +27,7 @@ export const BOARD_SIZES = { min: 240, max: 960, step: 80 } as const;
 export const LEVELS = [1, 2, 3, 4];
 
 /** What a game is at, in words: the position's status, or how it ended. */
-export type GameStatus = "in_progress" | "check" | "checkmate" | "stalemate" | "fifty_move_draw" | "threefold_repetition_draw" | "insufficient_material_draw" | "resigned" | "draw_agreed";
+export type GameStatus = "in_progress" | "check" | "checkmate" | "stalemate" | "fifty_move_draw" | "threefold_repetition_draw" | "insufficient_material_draw" | "resigned" | "draw_agreed" | "time_forfeit";
 
 const STATUS_WORDS: Record<number, GameStatus> = {
   [Status.NORMAL]: "in_progress",
@@ -56,6 +56,7 @@ export interface GameFile {
   readonly moves: readonly string[];
   readonly resigned?: Side;
   readonly drawAgreed?: boolean;
+  readonly flagged?: Side;
   readonly aiLevel: number;
   readonly aiSide: AiSide;
   readonly flipped: boolean;
@@ -78,6 +79,7 @@ export interface Snapshot {
   readonly boardFit?: boolean;
   readonly pgn?: PgnKept | null;
   readonly book?: boolean;
+  readonly flagged?: Side;
 }
 
 export class Game {
@@ -92,6 +94,8 @@ export class Game {
   redoSteps: Made[][] = [];
   resigned: Side | null = null;
   drawAgreed = false;
+  /** The side whose flag fell (clock.ts): the game is over on time; an undo does not bring the time back. */
+  flagged: Side | null = null;
   aiLevel = 2;
   aiSide: AiSide = "none";
   flipped = false;
@@ -123,6 +127,7 @@ export class Game {
   status(): GameStatus {
     if (this.resigned) return "resigned";
     if (this.drawAgreed) return "draw_agreed";
+    if (this.flagged) return "time_forfeit";
     return STATUS_WORDS[this.position.getStatus()];
   }
 
@@ -130,6 +135,10 @@ export class Game {
   result(): string {
     if (this.resigned) return this.resigned === "white" ? "0-1" : "1-0";
     if (this.drawAgreed) return "1/2-1/2";
+    if (this.flagged) {
+      const other: Side = this.flagged === "white" ? "black" : "white";
+      return !this.canMate(other) ? "1/2-1/2" : other === "white" ? "1-0" : "0-1";
+    }
     const s = this.position.getStatus();
     if (s === Status.CHECKMATE) return this.turn() === "white" ? "0-1" : "1-0";
     if (s === Status.STALEMATE_DRAW || s === Status.FIFTY_MOVE_RULE_DRAW || s === Status.THREEFOLD_REPETITION_RULE_DRAW || s === Status.INSUFFICIENT_MATERIAL_DRAW) return "1/2-1/2";
@@ -232,6 +241,7 @@ export class Game {
     this.redoSteps = [];
     this.resigned = null;
     this.drawAgreed = false;
+    this.flagged = null;
     this.pgn = null;
     if (this.#group !== null) this.#group = -1;
   }
@@ -240,6 +250,26 @@ export class Game {
   resign(side: Side = this.turn()): void {
     if (this.isOver()) throw new Error("the game is over");
     this.resigned = side;
+  }
+
+  /** A side's flag fell (clock.ts): it loses on time, or draws when the other cannot mate. */
+  flagFall(side: Side): void {
+    if (this.isOver()) return;
+    this.flagged = side;
+  }
+
+  /** Whether `side` has the pieces to mate at all: more than a king, or a king and one knight or bishop. */
+  canMate(side: Side): boolean {
+    const own = side === "white" ? PieceColor.WHITE : PieceColor.BLACK;
+    let minors = 0;
+    for (let i = 0; i < 64; ++i) {
+      if (this.position.getColorAtOrNull(i) !== own) continue;
+      const piece = this.position.getPieceAtOrNull(i)!;
+      if (piece === 5) continue;
+      if (piece === 1 || piece === 2) minors++;
+      else return true;
+    }
+    return minors > 1;
   }
 
   /** A draw by agreement; the game is over. */
@@ -275,6 +305,10 @@ export class Game {
     switch (this.status()) {
       case "resigned": return `${this.resigned} resigned: ${winner(this.resigned === "white" ? "black" : "white")} (${this.result()})`;
       case "draw_agreed": return "a draw, agreed (1/2-1/2)";
+      case "time_forfeit": {
+        const other: Side = this.flagged === "white" ? "black" : "white";
+        return this.result() === "1/2-1/2" ? `${this.flagged}'s flag fell, but ${other} cannot mate: a draw (1/2-1/2)` : `${this.flagged}'s flag fell: ${winner(other)} on time (${this.result()})`;
+      }
       case "checkmate": return `checkmate: ${winner(other)} (${this.result()})`;
       case "stalemate": return `stalemate: ${this.turn()} has no move, a draw (1/2-1/2)`;
       case "fifty_move_draw": return "a draw by the fifty-move rule: fifty moves each with no capture or pawn move (1/2-1/2)";
@@ -386,6 +420,7 @@ export class Game {
     return {
       format: GAME_FORMAT, version: 1, start: this.startFen, moves: this.moveList(),
       ...(this.resigned ? { resigned: this.resigned } : {}), ...(this.drawAgreed ? { drawAgreed: true } : {}),
+      ...(this.flagged ? { flagged: this.flagged } : {}),
       aiLevel: this.aiLevel, aiSide: this.aiSide, flipped: this.flipped, ...(this.book ? { book: true } : {}),
     };
   }
@@ -408,6 +443,7 @@ export class Game {
     }
     if (f.resigned === "white" || f.resigned === "black") g.resign(f.resigned);
     else if (f.drawAgreed === true) g.agreeDraw();
+    else if (f.flagged === "white" || f.flagged === "black") g.flagFall(f.flagged);
     if (LEVELS.includes(Number(f.aiLevel))) g.aiLevel = Number(f.aiLevel);
     if (f.aiSide === "white" || f.aiSide === "black" || f.aiSide === "both" || f.aiSide === "none") g.aiSide = f.aiSide;
     g.flipped = f.flipped === true;
@@ -477,6 +513,7 @@ export class Game {
       aiSide: this.aiSide,
       flipped: this.flipped,
       ...(this.book ? { book: true } : {}),
+      ...(this.flagged ? { flagged: this.flagged } : {}),
       dark: this.dark,
       boardSize: this.boardSize,
       boardFit: this.boardFit,
@@ -517,6 +554,7 @@ export class Game {
     this.aiSide = s.aiSide;
     this.flipped = s.flipped;
     this.book = s.book === true;
+    this.flagged = s.flagged ?? null;
     this.dark = s.dark === true;
     if (typeof s.boardSize === "number") this.boardSize = s.boardSize;
     if (typeof s.boardFit === "boolean") this.boardFit = s.boardFit;

@@ -1,0 +1,52 @@
+// spec_app_chess_clock.ae — the clocks (app/chess/clock.ts, TODO.md 6.2):
+// a time control by a click, the side to move's clock running and shown,
+// the clock passing to the other side with a move, the flag falling on
+// the page's own timer and the game over on time; SETCLOCK() and
+// GETCLOCK() over the control bus.
+//   ./run-tests.sh spec_app_chess_clock
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the clocks") {
+        spec.it("none at first; a click on 5+3 starts white's") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(b.wait_for_text("Clocks: none"), "none")
+            b.click("Clock 5+3")
+            spec.assert_true(c.wait_text_starting("Clocks 5+3: ▸ white 4:5", 5), "white's clock running, under five minutes")
+            spec.assert_true(c.has_text_starting("Clocks 5+3: ▸ white 4:5") == 1, "shown")
+        }
+        spec.it("a move passes the clock to black, white's time with its increment") callback {
+            c.click_square("e2", 0)
+            c.click_square("e4", 0)
+            spec.assert_true(c.wait_moves("e4"), "1. e4")
+            spec.assert_true(c.wait_text_starting("Clocks 5+3: white 5:0", 5), "white's increment added (over five minutes again)")
+            spec.assert_true(c.has_text_starting("Clocks 5+3: ▸ white") == 0, "white's clock stopped: black's runs now")
+        }
+        spec.it("the flag falls on the page's own timer: the game over on time") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, set = command_(key, "SETCLOCK(\"0:02+0\")")
+            spec.assert_contains(set, "\"result\":\"0:02+0\"", "SETCLOCK over the bus")
+            spec.assert_true(c.wait_text_starting("black's flag fell: white wins on time (1-0)", 6), "black's flag fell, said beside the board")
+            _s2, got = command_(key, "GETCLOCK()")
+            spec.assert_contains(got, "\"flag\":\"black\"", "GETCLOCK: whose flag")
+            spec.assert_contains(got, "\"black\":0", "at zero")
+            _s3, res = command_(key, "GETRESULT()")
+            spec.assert_contains(res, "\"result\":\"1-0\"", "the result")
+            _s4, mv = command_(key, "MOVESAN(\"e5\")")
+            spec.assert_contains(mv, "\"success\":false", "no more moves")
+        }
+        spec.it("No clocks takes them away") callback {
+            b.click("New game")
+            b.click("No clocks")
+            spec.assert_true(b.wait_for_text("Clocks: none"), "none again")
+        }
+    }
+    return spec.run_summary(fw)
+}

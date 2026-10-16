@@ -10,6 +10,14 @@ import { BOARD_SIZES, stateOf } from "../game.ts";
 import type { State } from "../game.ts";
 import { think } from "../think.ts";
 import { bookMove } from "../book.ts";
+import { timeText } from "../clock.ts";
+import type { ClockState } from "../clock.ts";
+
+/** The clocks in a line: the running one marked "▸", a fallen flag said. */
+export function clockLine(st: ClockState): string {
+  const side = (s: "white" | "black") => `${st.running === s ? "▸ " : ""}${s} ${timeText(st[s])}${st.flag === s ? " (flag)" : ""}`;
+  return `Clocks ${st.control}: ${side("white")} | ${side("black")}`;
+}
 import { analysisOf, lineText } from "../analysis.ts";
 import { START_PIECES, fenOf } from "../setup.ts";
 import type { Turn } from "../setup.ts";
@@ -40,6 +48,8 @@ export class ChessView {
   readonly kept = state<string[]>([]);
   /** The piece the editor puts on a square clicked (a FEN letter), "" for emptying it. */
   readonly brush = state("K");
+  /** The clocks as shown: "Clocks: ▸ white 4:57 | black 5:00", or "Clocks: none". */
+  readonly clock = state("Clocks: none");
   /** What the computer is doing: "" when it is not thinking, else how far it has got. */
   readonly thinking = state("");
   /** The analysis line: the computer's value of the position and the line it expects, or a hint; "" for none. */
@@ -361,6 +371,19 @@ export class ChessView {
     return this.cmds.game.legalMoves().filter((m) => m.getCoordinate().startsWith(sq)).map((m) => getIndexFromAlgebraic(m.getCoordinate().slice(2, 4)));
   }
 
+  // ---- the clocks (clock.ts)
+
+  /** The clocks charged to now (the page's timer, a few times a second): shown, and the game ended when a flag falls. */
+  tickClock(): void {
+    if (!this.cmds.clock) return;
+    const over = this.cmds.game.isOver();
+    this.cmds.tick();
+    if (!over && this.cmds.game.isOver()) {
+      this.refresh();
+      this.status.set(this.cmds.game.statusText());
+    } else this.clock.set(clockLine(this.cmds.clock.state()));
+  }
+
   /** The game into the states, in one batch. */
   refresh(): void {
     const g = this.cmds.game;
@@ -370,7 +393,9 @@ export class ChessView {
     const last = editing ? null : s.lastMove;
     const king = s.check && !editing ? pieces.indexOf(s.turn === "white" ? "K" : "k") : -1;
     const kept = this.cmds.execute("game.kept").output as string[];
+    const clock = this.cmds.clock ? clockLine(this.cmds.clock.state()) : "Clocks: none";
     batch(() => {
+      if (this.clock.value !== clock) this.clock.set(clock);
       if (kept.join("\n") !== this.kept.value.join("\n")) this.kept.set(kept);
       this.game.set(s);
       this.shown.set({

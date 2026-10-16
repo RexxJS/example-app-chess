@@ -13,6 +13,17 @@ export function moveLabel(ply: number, san: string, current: boolean): string {
   return `${current ? "▸ " : ""}${n}${ply % 2 ? "." : "..."} ${san}`;
 }
 
+/** The time controls offered by a click: minutes each, then the seconds added a move. */
+export const CONTROLS = ["1+0", "3+2", "5+3", "15+10"];
+
+/** Below the board: a time control by a click (the clocks themselves are shown beside it). */
+export function clockButtons(v: ChessView): void {
+  ui.hstack(() => {
+    ui.btn("No clocks", () => v.run("clock.set", { control: "none" }));
+    for (const control of CONTROLS) ui.btn(`Clock ${control}`, () => v.run("clock.set", { control }));
+  });
+}
+
 interface Row { readonly n: number; readonly white: string; readonly black: string; readonly key: string }
 
 export function sidebar(v: ChessView): number {
@@ -35,6 +46,8 @@ export function sidebar(v: ChessView): number {
       const b = v.game.value?.balance ?? 0;
       return b === 0 ? "Material: even" : `Material: ${b > 0 ? "white" : "black"} +${Math.abs(b)}`;
     }, v.game));
+    // The clocks (clock.ts): the time each side has, the running one marked.
+    bind(ui.text(""), v.clock);
     ui.btn("Start", () => v.run("game.goto", { ply: "0" }));
     // One row a full move: its number, white's move and black's, each a button.
     each(computed(() => {

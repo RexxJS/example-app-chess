@@ -14,6 +14,7 @@
 import { getIndexFromAlgebraic } from "./chess.ts";
 import { AI, depthOf } from "./ai.ts";
 import { bookMove } from "./book.ts";
+import { Clock, controlOf, timeText } from "./clock.ts";
 import { analyze, lineText } from "./analysis.ts";
 import { BOARD_SIZES, Game, LEVELS, stateOf } from "./game.ts";
 import type { AiSide, Side, Snapshot } from "./game.ts";
@@ -35,7 +36,7 @@ interface Spec {
   readonly params: readonly string[];       // each required
   readonly optional?: readonly string[];
   readonly journaled: boolean;              // it changes the game
-  run(game: Game, p: Params, store: Store | null): Outcome;
+  run(game: Game, p: Params, store: Store | null, cmds: Commands): Outcome;
 }
 
 /**
@@ -376,12 +377,53 @@ export const SPECS: readonly Spec[] = [
     },
   },
   {
+    id: "clock.set", label: "Clocks", params: ["control"], optional: ["white", "black"], journaled: false,
+    // A time control for both sides ("5+3"), the side to move's clock
+    // running from now; "none" takes the clocks away. white=, black=: a
+    // side's time left in seconds instead (a handicap). Not journaled: a
+    // replay has no time.
+    run: (game, p, _store, cmds) => {
+      if (/^\s*(none|off|0)\s*$/i.test(p.control)) {
+        cmds.clock = null;
+        return { ok: true, message: "no clocks", output: "" };
+      }
+      let control;
+      try {
+        control = controlOf(p.control);
+      } catch (e) {
+        refuse((e as Error).message);
+      }
+      const seconds = (v: string | undefined, side: string) => {
+        if (v === undefined) return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0 ? n * 1000 : refuse(`${v} is not a number of seconds for ${side}`);
+      };
+      const w = seconds(p.white, "white"), b = seconds(p.black, "black");
+      if (game.flagged) game.flagged = null;
+      const clock = new Clock(control!, game, cmds.now());
+      if (w !== undefined) clock.set("white", w);
+      if (b !== undefined) clock.set("black", b);
+      cmds.clock = clock;
+      const st = clock.state();
+      return { ok: true, message: `clocks at ${st.control}: white ${timeText(st.white)}, black ${timeText(st.black)}`, output: st.control };
+    },
+  },
+  {
+    id: "clock.state", label: "The clocks", params: [], journaled: false,
+    run: (_game, _p, _store, cmds) => {
+      const st = cmds.clock?.state() ?? null;
+      return { ok: true, message: st ? `white ${timeText(st.white)}, black ${timeText(st.black)}${st.flag ? `: ${st.flag}'s flag fell` : ""}` : "no clocks", output: st };
+    },
+  },
+  {
     id: "game.state", label: "The game's state", params: [], journaled: false,
     run: (game) => ({ ok: true, message: `${game.turn()} to move, ${game.status()}`, output: stateOf(game) }),
   },
 ];
 
 const BY_ID = new Map(SPECS.map((s) => [s.id, s]));
+// The commands that start a game again, and the clocks with it.
+const RESTARTS = ["game.new", "game.setPosition", "game.import", "game.importPgn", "game.open"];
 
 export class Commands {
   readonly game: Game;
@@ -389,10 +431,25 @@ export class Commands {
   readonly store: Store | null;
   readonly #journal: string[] = [];
   #autosaved = "";
+  /** The clocks (clock.ts), or null for none (clock.set). */
+  clock: Clock | null = null;
+  /** The time in ms, which the clocks read: Date.now in the page, a fake in a test. */
+  readonly now: () => number;
 
-  constructor(game: Game = new Game(), store: Store | null = null) {
+  constructor(game: Game = new Game(), store: Store | null = null, now: () => number = () => Date.now()) {
     this.game = game;
     this.store = store;
+    this.now = now;
+  }
+
+  /**
+   * The clocks charged to now (the page does it a few times a second): the
+   * side whose flag fell, the game then over on time; "" when none fell.
+   */
+  tick(): string {
+    const fell = this.clock?.tick(this.now()) ?? null;
+    if (fell && !this.game.isOver()) this.game.flagFall(fell);
+    return fell ?? "";
   }
 
   /** The game in progress kept (its file, under "autosave"), when it changed since; the page does it after every change. */
@@ -430,8 +487,15 @@ export class Commands {
     try {
       if (!spec) refuse(`no command ${id}`);
       for (const name of spec!.params) if (params[name] === undefined) refuse(`${id} needs ${name}`);
-      const outcome = spec!.run(this.game, params, this.store);
+      // The time up to now charged first: a flag that fell ends the game before the move.
+      if (this.clock) this.tick();
+      const outcome = spec!.run(this.game, params, this.store, this);
       if (outcome.ok && spec!.journaled) this.#journal.push(lineOf(id, params));
+      if (outcome.ok && this.clock && spec!.journaled) {
+        // A new game (or a position, or one opened) starts the clocks again.
+        if (RESTARTS.includes(id)) this.clock.reset(this.game, this.now());
+        else if (this.clock.sync(this.game, this.now()) && !this.game.isOver()) this.game.flagFall(this.clock.flag!);
+      }
       return outcome;
     } catch (e) {
       if (e instanceof Refused) return { ok: false, message: e.message };

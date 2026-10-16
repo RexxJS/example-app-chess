@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-48 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+50 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -41,7 +41,7 @@ the bus and the MCP server give back.
 | [`GETFEN()`](#getfen) | The position | its FEN |
 | [`GETMOVES()`](#getmoves) | The legal moves for the side to move, in coordinate notation | a stem of "e2e4", "e7e8q", ... |
 | [`LISTLEGALMOVES()`](#listlegalmoves) | The legal moves for the side to move, each described | a stem of {from, to, piece, capture, promotion, san, coordinate} |
-| [`GETSTATUS()`](#getstatus) | Where the game is | {status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned or draw_agreed |
+| [`GETSTATUS()`](#getstatus) | Where the game is | {status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned, draw_agreed or time_forfeit |
 | [`GETMOVEHISTORY()`](#getmovehistory) | The moves made so far, in coordinate notation | a stem of "e2e4", "e7e5", ... |
 | [`GETMOVEHISTORYSAN()`](#getmovehistorysan) | The moves made so far, in SAN | a stem of "e4", "e5", ... |
 | [`GETGAMEINFO()`](#getgameinfo) | Everything about the game at once | {status, toPlay, isCheck, legalMoveCount, halfMoveClock, fullMoveNumber, result, fen, lastMove, moves, canUndo, canRedo, aiLevel, aiSide, flipped, board} |
@@ -66,6 +66,8 @@ the bus and the MCP server give back.
 | [`AIMOVE()`](#aimove) | The computer makes a move for the side to move, at its level (SETAIDIFFICULTY): one step of undo; the same position at the same level gives the same move. It thinks in slices, so a level-4 move inside one control-bus request is not stopped at sae's limit for one piece of work | the move in SAN |
 | [`ANALYZE([depth])`](#analyze) | What the computer makes of the position: its value, the best move and the line it expects (the game is not changed) | {value: to white in centipawns, above 0 when white is better; mate: moves to a mate found, above 0 when white mates, below when black does, 0 for none; text: "+0.35" or "#2"; best: the best move in SAN; coordinate: it as "e2e4"; pv: a stem of the line in SAN; depth; nodes} |
 | [`HINT()`](#hint) | The move the computer would play for the side to move, at its level (the game is not changed) | the move in SAN |
+| [`SETCLOCK(control, [white], [black])`](#setclock) | Sets the clocks: the side to move's runs from now, a move adds the increment to the side that made it, and the side whose flag falls loses on time (a draw when the other cannot mate); a new game starts them again | the control, as "5+3"; "" for none |
+| [`GETCLOCK()`](#getclock) | The clocks, charged to now | {control, white, black: seconds left (to a tenth), running: "white", "black" or "", flag: whose flag fell or "", whiteText, blackText: as the clocks show them, "4:57", "0:09.4"}; all "" with no clocks |
 | [`OPENINGNAME()`](#openingname) | The name of the opening the game is in: the last position of the opening book (written for this app from the openings' public names) the game passed through, transpositions too | e.g. "Ruy Lopez, Morphy Defence"; "" before the first named position, or for a game set up from another |
 | [`BOOKMOVES()`](#bookmoves) | The opening book's moves from the position now | a stem of moves in SAN; none once the game is out of the book |
 | [`SETBOOK([on])`](#setbook) | Whether the computer plays from the opening book while the game is in it (AIMOVE then makes a book move at once, chosen by the position) | 1 when on, else 0 |
@@ -205,7 +207,7 @@ The legal moves for the side to move, each described. Gives a stem of {from, to,
 GETSTATUS()
 ```
 
-Where the game is. Gives {status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned or draw_agreed.
+Where the game is. Gives {status, toPlay, isCheck, legalMoves, result}: status in_progress, check, checkmate, stalemate, fifty_move_draw, threefold_repetition_draw, insufficient_material_draw, resigned, draw_agreed or time_forfeit.
 
 ### GETMOVEHISTORY
 
@@ -438,6 +440,28 @@ HINT()
 ```
 
 The move the computer would play for the side to move, at its level (the game is not changed). Gives the move in SAN.
+
+### SETCLOCK
+
+```rexx
+SETCLOCK(control, [white], [black])
+```
+
+Sets the clocks: the side to move's runs from now, a move adds the increment to the side that made it, and the side whose flag falls loses on time (a draw when the other cannot mate); a new game starts them again. Gives the control, as "5+3"; "" for none.
+
+| Parameter | Kind | |
+|---|---|---|
+| `control` | text | "5+3": five minutes each and three seconds added a move; "1:30+0"; "0:05"; "none" for no clocks |
+| `white` | number, optional | white's time left, in seconds, in place of the control's |
+| `black` | number, optional | black's, so |
+
+### GETCLOCK
+
+```rexx
+GETCLOCK()
+```
+
+The clocks, charged to now. Gives {control, white, black: seconds left (to a tenth), running: "white", "black" or "", flag: whose flag fell or "", whiteText, blackText: as the clocks show them, "4:57", "0:09.4"}; all "" with no clocks.
 
 ### OPENINGNAME
 

@@ -15,6 +15,8 @@ import { DESCRIBED, signature } from "./described.ts";
 import { analyzeOnce, canSlice, thinkOnce } from "./think.ts";
 import type { Analysis } from "./analysis.ts";
 import { bookMove, bookMoves } from "./book.ts";
+import { timeText } from "./clock.ts";
+import type { ClockState } from "./clock.ts";
 
 export interface Done {
   readonly ok: boolean;
@@ -139,6 +141,15 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   HINT: (exec, game) => {
     if (!canSlice() || game.isOver()) return must(exec, "ai.hint").output;
     return analyzeOnce(game, game.aiLevel).then((a) => a.best);
+  },
+  SETCLOCK: (exec, _g, control, white, black) => must(exec, "clock.set", {
+    control: text(control) === "" ? "none" : text(control),
+    ...(white === undefined || text(white) === "" ? {} : { white: text(white) }), ...(black === undefined || text(black) === "" ? {} : { black: text(black) }),
+  }).output,
+  GETCLOCK: (exec) => {
+    const st = must(exec, "clock.state").output as ClockState | null;
+    if (!st) return { control: "", white: "", black: "", running: "", flag: "", whiteText: "", blackText: "" };
+    return { control: st.control, white: Math.round(st.white / 100) / 10, black: Math.round(st.black / 100) / 10, running: st.running, flag: st.flag, whiteText: timeText(st.white), blackText: timeText(st.black) };
   },
   OPENINGNAME: (exec) => state(exec).opening,
   BOOKMOVES: (_e, game) => stem(bookMoves(game)),

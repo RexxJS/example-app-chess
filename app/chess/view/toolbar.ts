@@ -6,6 +6,7 @@
 // (an installed app's, sae's ui.menu) runs the same.
 import type { ChessView } from "./view.ts";
 import type { AiSide } from "../game.ts";
+import { CONTROLS } from "./sidebar.ts";
 
 // Who the person plays, as the side the computer plays.
 const PLAYS: readonly (readonly [string, AiSide])[] = [
@@ -72,6 +73,10 @@ export function menuBar(v: ChessView): void {
     ui.menu_item("Flip board", () => v.run("board.flip"));
     ui.menu_item("Dark mode", () => v.run("view.dark"));
     ui.menu_item("Fit board to the window", () => v.run("view.boardSize", { fit: "1" }));
+  });
+  ui.menu("Clocks", () => {
+    ui.menu_item("No clocks", () => v.run("clock.set", { control: "none" }));
+    for (const control of CONTROLS) ui.menu_item(`${control}`, () => v.run("clock.set", { control }));
   });
   ui.menu("Computer", () => {
     for (const [label, side] of PLAYS) ui.menu_item(label, () => v.run("ai.side", { side }));
