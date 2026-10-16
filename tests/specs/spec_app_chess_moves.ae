@@ -1,0 +1,93 @@
+// spec_app_chess_moves.ae — moving on the board (app/chess/view/board.ts,
+// ChessView.clickSquare, dropOn): a click picks a piece and dots its legal
+// targets, a click on a target moves; a game of ten moves by clicks, a
+// click that is not a legal move refused and said, a piece dragged and
+// let go on its target, and a promotion chosen from the buttons it brings.
+//   ./run-tests.sh spec_app_chess_moves
+import std.spec
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+// A move by two clicks: the piece (picked, its square marked), then its target.
+by_clicks_(from: string, to: string) {
+    c.click_square(from, 0)
+    spec.assert_true(c.wait_square_rgb(from, 0, c.SELECTED), "${from} picked")
+    c.click_square(to, 0)
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "moving on the board") {
+        spec.it("a click picks a piece and dots its targets; a second click on it drops it") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(c.wait_piece("g1", 0, "♘"), "the knight on g1")
+            c.click_square("g1", 0)
+            spec.assert_true(c.wait_square_rgb("g1", 0, c.SELECTED), "g1 marked as picked")
+            spec.assert_true(b.wait_for_vg_pixel(c.square_x("f3", 0), c.square_y("f3", 0), c.TARGET), "a dot on f3")
+            spec.assert_true(b.wait_for_vg_pixel(c.square_x("h3", 0), c.square_y("h3", 0), c.TARGET), "and on h3")
+            spec.assert_true(b.vg_pixel_near(c.square_x("g3", 0), c.square_y("g3", 0), c.TARGET, 24) == 0, "none on g3")
+            c.click_square("g1", 0)
+            spec.assert_true(c.wait_square_rgb("g1", 0, c.DARK), "dropped: g1 as it was")
+            spec.assert_true(c.wait_moves(""), "and no move made")
+        }
+        spec.it("a black piece cannot be picked on white's move") callback {
+            c.click_square("e7", 0)
+            spec.assert_true(c.wait_square_rgb("e7", 0, c.DARK), "e7 not picked")
+        }
+        spec.it("a game of ten moves by clicks") callback {
+            by_clicks_("e2", "e4")
+            spec.assert_true(c.wait_moves("e4"), "1. e4")
+            spec.assert_true(c.wait_piece("e4", 0, "♙"), "the pawn on e4")
+            by_clicks_("e7", "e5")
+            by_clicks_("g1", "f3")
+            by_clicks_("b8", "c6")
+            by_clicks_("f1", "c4")
+            by_clicks_("g8", "f6")
+            by_clicks_("d2", "d3")
+            by_clicks_("f8", "c5")
+            by_clicks_("b1", "c3")
+            by_clicks_("d7", "d6")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 Nc3 d6"), "ten moves in the list")
+            spec.assert_true(c.wait_fen("r1bqk2r/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 0 6"), "the position")
+            spec.assert_true(c.wait_square_rgb("d6", 0, c.LAST_DARK), "the last move marked")
+        }
+        spec.it("a click that is no legal move: refused, said, and the piece dropped") callback {
+            c.click_square("h2", 0)
+            spec.assert_true(c.wait_square_rgb("h2", 0, c.SELECTED), "h2 picked")
+            c.click_square("h5", 0)
+            spec.assert_true(b.wait_for_text("h2 to h5 is not a legal move for white"), "said")
+            spec.assert_true(c.wait_square_rgb("h2", 0, c.DARK), "dropped")
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 Nc3 d6"), "no move made")
+        }
+        spec.it("a piece dragged and let go on its target moves; let go elsewhere, it goes back") callback {
+            c.drag_square("c1", "g5", 0)
+            spec.assert_true(c.wait_moves("e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Bc5 Nc3 d6 Bg5"), "Bg5 by a drag")
+            spec.assert_true(c.wait_piece("g5", 0, "♗"), "the bishop on g5")
+            c.drag_square("h7", "h4", 0)
+            spec.assert_true(b.wait_for_text("h7 to h4 is not a legal move for black"), "a drag to no target refused")
+            spec.assert_true(c.wait_piece("h7", 0, "♟"), "the pawn back on h7")
+        }
+        spec.it("a promotion: the move waits for its piece, and becomes the one chosen") callback {
+            spec.assert_true(b.wait_for_console("sae: control bus: listening"), "listening")
+            _u, key = courier_()
+            _s, _p = command_(key, "SETPOSITION(\"7k/P7/8/8/8/8/8/K7 w - - 0 1\")")
+            spec.assert_true(c.wait_piece("a7", 0, "♙"), "a white pawn on a7")
+            by_clicks_("a7", "a8")
+            spec.assert_true(b.wait_for_text("promote to: queen, rook, bishop or knight"), "asked which")
+            spec.assert_true(b.button_exists("Promote to knight") == 1, "the four buttons")
+            spec.assert_true(c.wait_moves(""), "no move yet")
+            b.click("Cancel promotion")
+            spec.assert_true(b.wait_for_text("no promotion: the pawn stays"), "cancelled")
+            spec.assert_true(c.wait_piece("a7", 0, "♙"), "the pawn still on a7")
+            by_clicks_("a7", "a8")
+            b.click("Promote to knight")
+            spec.assert_true(c.wait_moves("a8=N"), "a8=N")
+            spec.assert_true(c.wait_piece("a8", 0, "♘"), "a knight on a8")
+            spec.assert_true(b.wait_for_text_gone("Promote to knight"), "the buttons gone")
+        }
+    }
+    return spec.run_summary(fw)
+}

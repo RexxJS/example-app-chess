@@ -36,7 +36,8 @@ app/
                     line), rexxjs.js (RexxJS, generated); to come in
                     TODO.md's order: ai.ts
   chess/view/       the ui: view.ts (the states the panels read, refreshed
-                    after every command), board.ts (the board in vg)
+                    after every command), board.ts (the board in vg:
+                    click or drag to move), promotion.ts
 tests/
   headless/         chess_*.ts: the model, one file per area, "// expect:"
                     lines as verdicts (perft the oracle for the move

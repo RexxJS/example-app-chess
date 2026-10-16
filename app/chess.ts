@@ -12,11 +12,14 @@
 // nothing else. This page only says which panels, in which order.
 import { ChessView } from "./chess/view/view.ts";
 import { board } from "./chess/view/board.ts";
+import { promotionBar } from "./chess/view/promotion.ts";
 
 const v = new ChessView();
 
 ui.text("Chess");
 board(v);
+promotionBar(v);
+bind(ui.text(""), v.status);
 bind(ui.text(""), computed(() => {
   const g = v.game.value;
   return g ? `${g.turn} to move: ${g.status}${g.result !== "*" ? ` (${g.result})` : ""}` : "";

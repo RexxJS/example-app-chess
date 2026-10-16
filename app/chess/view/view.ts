@@ -25,6 +25,8 @@ export class ChessView {
   readonly shown = state<Shown>({ pieces: [], flipped: false, lastFrom: -1, lastTo: -1, check: -1, selected: -1, targets: [] });
   readonly game = state<State | null>(null);
   readonly status = state("");          // what the last command said
+  /** A pawn's move to the last rank, waiting for the piece it becomes; null when none is. */
+  readonly promoting = state<{ from: number; to: number } | null>(null);
   #selected = -1;
 
   constructor(cmds: Commands = new Commands()) {
@@ -48,6 +50,79 @@ export class ChessView {
 
   selected(): number {
     return this.#selected;
+  }
+
+  // ---- moving on the board (board.ts calls these)
+
+  /**
+   * A click (a press) on a square: with nothing picked, it picks a piece of
+   * the side to move, and its targets are shown; with a piece picked, a
+   * target makes the move, another piece of the same side is picked
+   * instead, the same square drops it, and any other square is refused.
+   */
+  clickSquare(index: number): void {
+    if (this.promoting.value) return;
+    const from = this.#selected;
+    if (from >= 0 && from !== index && this.targetsOf(from).includes(index)) {
+      this.moveTo(from, index);
+      return;
+    }
+    if (from === index) {
+      this.select(-1);
+      return;
+    }
+    if (this.ownPiece(index)) {
+      this.select(index);
+      return;
+    }
+    if (from >= 0) {
+      this.select(-1);
+      this.status.set(`${getAlgebraicFromIndex(from)} to ${getAlgebraicFromIndex(index)} is not a legal move for ${this.cmds.game.turn()}`);
+    }
+  }
+
+  /** A piece dragged from `from` and let go over `to` (-1: off the board). */
+  dropOn(from: number, to: number): void {
+    if (this.promoting.value || to < 0 || to === from || !this.ownPiece(from)) return;
+    if (this.targetsOf(from).includes(to)) this.moveTo(from, to);
+    else {
+      this.select(-1);
+      this.status.set(`${getAlgebraicFromIndex(from)} to ${getAlgebraicFromIndex(to)} is not a legal move for ${this.cmds.game.turn()}`);
+    }
+  }
+
+  /** A piece of the side to move on the square. */
+  ownPiece(index: number): boolean {
+    const g = this.cmds.game;
+    if (g.isOver()) return false;
+    const letter = g.pieceAt(index);
+    return letter !== "" && (letter === letter.toUpperCase()) === (g.turn() === "white");
+  }
+
+  /** The move from one square to another: made, or (a promotion) waiting for its piece. */
+  moveTo(from: number, to: number): void {
+    const sq = getAlgebraicFromIndex(from) + getAlgebraicFromIndex(to);
+    const promotes = this.cmds.game.legalMoves().some((m) => m.getCoordinate().startsWith(sq) && m.isPromotion());
+    if (promotes) {
+      this.promoting.set({ from, to });
+      this.refresh();
+      this.status.set("promote to: queen, rook, bishop or knight");
+      return;
+    }
+    this.run("game.move", { from: getAlgebraicFromIndex(from), to: getAlgebraicFromIndex(to) });
+  }
+
+  /** The piece a waiting promotion becomes ("queen", ...), or "" to take the move back. */
+  promote(piece: string): void {
+    const p = this.promoting.value;
+    if (!p) return;
+    this.promoting.set(null);
+    if (!piece) {
+      this.select(-1);
+      this.status.set("no promotion: the pawn stays");
+      return;
+    }
+    this.run("game.move", { from: getAlgebraicFromIndex(p.from), to: getAlgebraicFromIndex(p.to), promotion: piece });
   }
 
   /** The squares the piece on `from` may go to. */

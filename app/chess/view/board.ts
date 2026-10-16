@@ -2,7 +2,9 @@
 // ranks around them, the pieces as the Unicode chess glyphs, the last move
 // and a king in check marked; white at the bottom, or black when the board
 // is flipped (board.flip). Every square and glyph is bound to the view's
-// `shown` state, so a refresh redraws only what changed.
+// `shown` state, so a refresh redraws only what changed. A press on a
+// piece picks it and dots its targets; a press on a target, or the piece
+// dragged and let go over one, moves (ChessView.clickSquare, dropOn).
 //
 // The scene's viewBox is 0 0 88 88: a 4-unit margin for the coordinates,
 // and squares of 10 from (4, 4) to (84, 84). A square on screen is at
@@ -56,10 +58,30 @@ export function board(v: ChessView): number {
       for (let c = 0; c < 8; ++c) {
         const x = MARGIN + c * SQUARE, y = MARGIN + r * SQUARE;
         const at = () => squareAt(c, r, shown().flipped);
-        vg.rect(x, y, SQUARE, SQUARE, () => vg.bind_fill(() => squareFill(shown(), at())));
-        vg.text_anchored(x + SQUARE / 2, y + SQUARE * 0.82, 8.5, "middle", "", () => {
+        vg.rect(x, y, SQUARE, SQUARE, () => {
+          vg.bind_fill(() => squareFill(shown(), at()));
+          vg.on_click(() => v.clickSquare(at()));
+        });
+        // A legal target of the piece picked: a dot in the square.
+        vg.circle(x + SQUARE / 2, y + SQUARE / 2, 1.6, () => {
+          vg.fill(COLOURS.target);
+          vg.visible_when(() => shown().targets.includes(at()));
+          vg.on_click(() => v.clickSquare(at()));
+        });
+        // The piece: a press picks it (or makes the move it is a target of);
+        // dragged, it follows the pointer, and let go over a target, moves.
+        const glyph: number = vg.text_anchored(x + SQUARE / 2, y + SQUARE * 0.82, 8.5, "middle", "", () => {
           vg.fill(COLOURS.piece);
           vg.bind_text(() => glyphOf(shown().pieces[at()] ?? ""));
+          vg.cursor("grab");
+          vg.on_click(() => v.clickSquare(at()));
+          vg.on_drag((px: number, py: number) => {
+            if (v.ownPiece(at())) vg.set_transform(glyph, `translate(${px - (x + SQUARE / 2)} ${py - (y + SQUARE / 2)})`);
+          });
+          vg.on_drag_end((px: number, py: number) => {
+            vg.set_transform(glyph, "translate(0 0)");
+            v.dropOn(at(), squareUnder(px, py, shown().flipped));
+          });
         });
       }
     }

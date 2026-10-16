@@ -40,7 +40,7 @@ done
 
 T=$ROOT/target
 LOGS=$T/run-tests
-rm -rf "$LOGS" "$T/chess-appdata" "$T/chess-bus-appdata" "$T/chess-board-appdata" "$T/chess-rexx-appdata" "$T/chess-mcp-appdata"; mkdir -p "$LOGS"
+rm -rf "$LOGS" "$T/chess-appdata" "$T/chess-bus-appdata" "$T/chess-board-appdata" "$T/chess-moves-appdata" "$T/chess-rexx-appdata" "$T/chess-mcp-appdata"; mkdir -p "$LOGS"
 # label | environment (space-separated NAME=value) | command
 TABLE="
 headers||headers
@@ -48,6 +48,7 @@ commands-doc||commands-doc
 headless||headless
 spec_app_chess|AETHER_UI_HEADLESS=1 SAE_APPDATA_DIR=$T/chess-appdata SAE_TEST_APP=$ROOT/app|spec spec_app_chess
 spec_app_chess_board|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-board-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_board
+spec_app_chess_moves|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-moves-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_moves
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
 mcp||mcp
