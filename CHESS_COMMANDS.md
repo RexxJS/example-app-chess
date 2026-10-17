@@ -22,7 +22,7 @@ In a script inside the app the functions are called directly too: `r = MOVESAN("
 
 ## The functions
 
-60 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
+63 of them, as `LISTCOMMANDS(1)` gives them. Optional parameters are in brackets. A function that cannot do what it is asked
 (an illegal move, a square that is none, a FEN that is wrong) fails with the reason, which a script sees as its error and
 the bus and the MCP server give back.
 
@@ -83,6 +83,9 @@ the bus and the MCP server give back.
 | [`SETBOOK([on])`](#setbook) | Whether the computer plays from the opening book while the game is in it (AIMOVE then makes a book move at once, chosen by the position) | 1 when on, else 0 |
 | [`FLIPBOARD()`](#flipboard) | Turns the board round: black at the bottom, or white again | 1 when black is at the bottom, else 0 |
 | [`BOARDSIZE([px])`](#boardsize) | Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for | the size, in pixels |
+| [`DESCRIBESQUARE(square)`](#describesquare) | A square and what stands on it, as a screen reader says it | e.g. "e4, white knight" or "e5, empty" |
+| [`DESCRIBEBOARD()`](#describeboard) | The position in words, rank by rank from the 8th, each piece by its square (what the page gives a screen reader as the board's description) | e.g. "8: a8 black rook, b8 black knight, ...; 6: empty; ..." |
+| [`CURSOR([at])`](#cursor) | The page's keyboard cursor on the board (the arrows move it, Return or Space picks the piece under it and puts it down on a target, Escape puts it back): moved, shown, and the square announced to a screen reader | the square in words, e.g. "e4, white knight" |
 | [`DARKMODE([on])`](#darkmode) | The page's dark look, or the light | 1 when dark, else 0 |
 | [`CHESSCOMMAND(line)`](#chesscommand) | Runs one ADDRESS CHESS line, as a script's ADDRESS CHESS does (the control bus, whose requests are expressions, reaches the old commands so) | what the line gives; its refusal is the error |
 | [`RUN_PROGRAM(program, [encoding])`](#run_program) | Runs a whole program with these same functions, as one step of undo, taken back whole if it fails | {said: a stem of its SAY lines, result: its RESULT} |
@@ -617,6 +620,38 @@ Sets the board's size on the page, in pixels; by itself the board follows the wi
 | Parameter | Kind | |
 |---|---|---|
 | `px` | number, optional | 240 to 960, which the board then keeps; "fit": it follows the window again; left out: the size it is |
+
+### DESCRIBESQUARE
+
+```rexx
+DESCRIBESQUARE(square)
+```
+
+A square and what stands on it, as a screen reader says it. Gives e.g. "e4, white knight" or "e5, empty".
+
+| Parameter | Kind | |
+|---|---|---|
+| `square` | square |  |
+
+### DESCRIBEBOARD
+
+```rexx
+DESCRIBEBOARD()
+```
+
+The position in words, rank by rank from the 8th, each piece by its square (what the page gives a screen reader as the board's description). Gives e.g. "8: a8 black rook, b8 black knight, ...; 6: empty; ...".
+
+### CURSOR
+
+```rexx
+CURSOR([at])
+```
+
+The page's keyboard cursor on the board (the arrows move it, Return or Space picks the piece under it and puts it down on a target, Escape puts it back): moved, shown, and the square announced to a screen reader. Gives the square in words, e.g. "e4, white knight".
+
+| Parameter | Kind | |
+|---|---|---|
+| `at` | text, optional | a square, "e4", or a step across the board as it is shown: up, down, left or right; left out: where it is |
 
 ### DARKMODE
 

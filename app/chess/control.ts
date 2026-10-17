@@ -18,6 +18,8 @@ import { bookMove, bookMoves } from "./book.ts";
 import { timeText } from "./clock.ts";
 import type { ClockState } from "./clock.ts";
 import type { PuzzleState } from "./puzzle.ts";
+import { STEPS, boardText, squareText } from "./speak.ts";
+import type { Step } from "./speak.ts";
 
 export interface Done {
   readonly ok: boolean;
@@ -53,6 +55,8 @@ const unstem = (v: unknown): unknown[] => {
   const s = v as Record<string, unknown>;
   return Array.from({ length: Number(s?.[0] ?? 0) }, (_, i) => s[i + 1]);
 };
+
+const piecesOf = (game: Game): string[] => Array.from({ length: 64 }, (_, i) => game.pieceAt(i));
 
 /** The board as the old get-board drew it: the Unicode pieces, "." for empty, files and ranks around. */
 export function boardOf(game: Game): string {
@@ -183,6 +187,14 @@ export const CONTROL: Readonly<Record<string, Control>> = {
   SETBOOK: (exec, _g, on) => must(exec, "ai.book", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,
   FLIPBOARD: (exec) => must(exec, "board.flip").output,
   BOARDSIZE: (exec, _g, px) => must(exec, "view.boardSize", px === undefined || text(px) === "" ? {} : text(px).trim().toLowerCase() === "fit" ? { fit: "1" } : { px: text(px) }).output,
+  // The board in words, for a screen reader (speak.ts; TODO.md 6.6).
+  DESCRIBESQUARE: (_e, game, sq) => squareText(piecesOf(game), getIndexFromAlgebraic(square(sq, "DESCRIBESQUARE"))),
+  DESCRIBEBOARD: (_e, game) => boardText(piecesOf(game)),
+  CURSOR: (exec, _g, at) => {
+    const a = text(at).trim().toLowerCase();
+    if (a === "") return must(exec, "view.cursor").output;
+    return must(exec, "view.cursor", STEPS.includes(a as Step) ? { by: a } : { square: square(a, "CURSOR") }).output;
+  },
   DARKMODE: (exec, _g, on) => must(exec, "view.dark", on === undefined || text(on) === "" ? {} : { on: text(on) }).output,
 };
 

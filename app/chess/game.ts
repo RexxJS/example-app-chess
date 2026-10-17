@@ -108,6 +108,10 @@ export class Game {
   boardSize = 480;
   /** The board follows the window (the page sizes it to fit, view.boardSize fit=1); a size set by hand stops it. Not part of a game file. */
   boardFit = true;
+  /** The keyboard's cursor on the board (view.cursor), a square 0-63; not part of a game file. */
+  cursor = 12;
+  /** The cursor is shown: once the keyboard (or view.cursor) has moved it. Not part of a game file. */
+  cursorShown = false;
   /** What a game read from PGN keeps besides its moves (its tags, comments, variations), to write again; null for a game not read so. */
   pgn: PgnKept | null = null;
   /** Set while a group is open: the step the moves made since fold into (its index in `steps`), or -1 before its first move. */
@@ -602,6 +606,7 @@ export interface State {
   readonly dark: boolean;
   readonly boardSize: number;
   readonly boardFit: boolean;
+  readonly cursor: number;                // the keyboard's cursor (view.cursor), or -1 while it is not shown
   readonly opening: string;               // the opening's name (book.ts), or ""
   readonly book: boolean;                 // the computer plays from the book
   readonly chess960: number;              // the Chess960 start it began from (chess960.ts), or -1
@@ -618,6 +623,7 @@ export function stateOf(game: Game): State {
     aiLevel: game.aiLevel, aiSide: game.aiSide, flipped: game.flipped,
     future: game.future().map((m) => m.san), statusText: game.statusText(),
     capturedByWhite: taken.byWhite, capturedByBlack: taken.byBlack, balance: taken.balance, dark: game.dark, boardSize: game.boardSize, boardFit: game.boardFit,
+    cursor: game.cursorShown ? game.cursor : -1,
     opening: openingOf(game), book: game.book, chess960: game.chess960(),
   };
 }

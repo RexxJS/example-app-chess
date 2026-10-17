@@ -65,6 +65,7 @@ spec_app_chess_book|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-book-a
 spec_app_chess_clock|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-clock-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_clock
 spec_app_chess_puzzle|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-puzzle-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_puzzle
 spec_app_chess_960|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-960-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_960
+spec_app_chess_a11y|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-a11y-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_a11y
 spec_app_chess_bus|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-bus-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app|spec spec_app_chess_bus
 spec_app_chess_rexx|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-rexx-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|spec spec_app_chess_rexx
 spec_app_chess_match|SAE_TEST_FLAGS=--control-bus SAE_APPDATA_DIR=$T/chess-match-appdata AETHER_UI_HEADLESS=1 SAE_TEST_APP=$ROOT/app CHESS_ROOT=$ROOT|match spec_app_chess_match

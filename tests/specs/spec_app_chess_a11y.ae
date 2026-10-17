@@ -1,0 +1,174 @@
+// spec_app_chess_a11y.ae — the board for a screen reader and the keyboard
+// alone (TODO.md 6.6; app/chess/view/board.ts, ChessView.key, speak.ts):
+// the board is one element, named for the game's state and described
+// square by square (sae's ui.a11y_* on the scene, read back as aether-ui's
+// driver has them from the platform: GET /widget/{id}/a11y); the arrows
+// move a cursor drawn on it, Return or Space picks a piece (its targets
+// said) and puts it down on one (the move said), Escape puts it back, a
+// promotion takes q, r, b or n; each square the cursor reaches is said.
+// CURSOR, DESCRIBESQUARE and DESCRIBEBOARD over the control bus.
+//   ./run-tests.sh spec_app_chess_a11y
+import std.spec
+import std.string
+import saedriver as b
+import chessdriver as c
+import uidriver
+import busclient (courier_, command_)
+
+const CURSOR = 2056127        // #1f5fbf, the cursor's outline
+
+// A point of a square (white at the bottom) in canvas pixels, (fx, fy)
+// viewBox units from its top left: the cursor's outline is at 0 to 1.2.
+px_(sq: string, fx: float) -> int {
+    f = string.index_of("abcdefgh", string.substring(sq, 0, 1))
+    return b.vg_px_x(4.0 + f * 10.0 + fx, 88.0, 88.0)
+}
+py_(sq: string, fy: float) -> int {
+    r = string.index_of("12345678", string.substring(sq, 1, 2))
+    return b.vg_px_y(4.0 + (7 - r) * 10.0 + fy, 88.0, 88.0)
+}
+
+// The cursor's outline is drawn on the square's left edge.
+cursor_on_(sq: string) -> int { return b.wait_for_vg_pixel(px_(sq, 0.6), py_(sq, 5.0), CURSOR) }
+
+said_(text: string) -> int { return b.wait_for_vg_a11y("\"announced\":\"${text}\"") }
+
+// 1 once what the board's a11y reads is other than `was` (an announcement counted).
+changed_(was: string) -> int {
+    i = 0
+    while i < 80 {
+        if string.equals(b.vg_a11y(), was) == 0 { return 1 }
+        sleep(50)
+        i = i + 1
+    }
+    return 0
+}
+
+keys_(k: string, n: int) {
+    i = 0
+    while i < n {
+        b.vg_key(k)
+        i = i + 1
+    }
+}
+
+main() {
+    fw = spec.init()
+    uidriver.wait_server()
+    spec.describe(fw, "the board to a screen reader") {
+        spec.it("one element: a group, named for the game, described rank by rank") callback {
+            spec.assert_true(b.wait_for_vg_canvas(), "the board")
+            spec.assert_true(c.wait_piece("e2", 0, "♙"), "the pieces")
+            spec.assert_true(b.wait_for_vg_a11y("\"name\":\"Chess board, white to move\""), "named: ${b.vg_a11y()}")
+            r = b.vg_a11y()
+            spec.assert_contains(r, "\"role\":\"group\"", "a group")
+            spec.assert_contains(r, "8: a8 black rook, b8 black knight, c8 black bishop, d8 black queen, e8 black king", "the 8th rank described")
+            spec.assert_contains(r, "6: empty; 5: empty", "the empty ranks")
+            spec.assert_contains(r, "1: a1 white rook", "and the first")
+            spec.assert_true(string.contains(r, "Cursor on") == 0, "no cursor until the keys move it")
+            spec.assert_true(b.vg_pixel_near(px_("e2", 0.6), py_("e2", 5.0), CURSOR, 24) == 0, "none drawn")
+        }
+    }
+    spec.describe(fw, "keyboard-only play") {
+        spec.it("an arrow shows the cursor and moves it; each square is said") callback {
+            b.vg_key("Up")
+            spec.assert_true(said_("e3, empty"), "e3 said")
+            spec.assert_true(cursor_on_("e3"), "the cursor drawn on e3")
+            spec.assert_true(b.wait_for_vg_a11y("Cursor on e3, empty. 8: a8"), "and in the description")
+            b.vg_key("Down")
+            spec.assert_true(said_("e2, white pawn"), "e2, white pawn")
+            spec.assert_true(cursor_on_("e2"), "drawn on e2")
+        }
+        spec.it("Return picks the piece and says where it can go; on a target it moves, said") callback {
+            b.vg_key("Return")
+            spec.assert_true(said_("e2, white pawn, picked: to e3, e4"), "picked, its targets said")
+            spec.assert_true(b.wait_for_vg_pixel(c.square_x("e4", 0), c.square_y("e4", 0), c.TARGET), "its targets dotted")
+            keys_("Up", 2)
+            spec.assert_true(said_("e4, empty"), "the cursor on e4, the piece still picked")
+            b.vg_key("Return")
+            spec.assert_true(said_("e2 to e4"), "e2 to e4")
+            spec.assert_true(c.wait_moves("e4"), "1. e4")
+            spec.assert_true(c.wait_piece("e4", 0, "♙"), "the pawn on e4")
+            spec.assert_true(b.wait_for_vg_a11y("\"name\":\"Chess board, black to move\""), "the board's name follows")
+            spec.assert_true(b.wait_for_vg_a11y("4: e4 white pawn"), "and its description")
+        }
+        spec.it("black's reply, Space as Return") callback {
+            keys_("Up", 3)
+            spec.assert_true(said_("e7, black pawn"), "e7")
+            b.vg_key("space")
+            spec.assert_true(said_("e7, black pawn, picked: to e5, e6"), "picked")
+            keys_("Down", 2)
+            b.vg_key("space")
+            spec.assert_true(said_("e7 to e5"), "e7 to e5")
+            spec.assert_true(c.wait_moves("e4 e5"), "1. e4 e5")
+        }
+        spec.it("Escape puts a piece back; a square with no piece to move, and a move that is none, said") callback {
+            keys_("Down", 4)
+            keys_("Right", 2)
+            spec.assert_true(said_("g1, white knight"), "g1")
+            b.vg_key("Return")
+            spec.assert_true(b.wait_for_vg_a11y("\"announced\":\"g1, white knight, picked: to "), "picked")
+            spec.assert_contains(b.vg_a11y(), "f3", "f3 among its targets")
+            b.vg_key("Escape")
+            spec.assert_true(said_("g1 put back"), "put back")
+            keys_("Up", 5)
+            spec.assert_true(said_("g6, empty"), "g6")
+            b.vg_key("Return")
+            spec.assert_true(said_("g6, empty: no white piece to move"), "nothing to pick")
+            keys_("Down", 5)
+            b.vg_key("Return")
+            keys_("Up", 3)
+            b.vg_key("Return")
+            spec.assert_true(said_("g1 to g4 is not a legal move for white"), "refused, said")
+            spec.assert_true(c.wait_moves("e4 e5"), "no move made")
+        }
+        spec.it("a capture is said with what it took") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "MOVESAN(\"d4\"); MOVESAN(\"Nc6\")")
+            spec.assert_true(c.wait_moves("e4 e5 d4 Nc6"), "1. e4 e5 2. d4 Nc6")
+            _s2, got = command_(key, "CURSOR(\"d4\")")
+            spec.assert_contains(got, "\"result\":\"d4, white pawn\"", "CURSOR over the bus gives the square in words")
+            spec.assert_true(said_("d4, white pawn"), "and the page says it")
+            spec.assert_true(cursor_on_("d4"), "drawn on d4")
+            b.vg_key("Return")
+            keys_("Up", 1)
+            keys_("Right", 1)
+            spec.assert_true(said_("e5, black pawn"), "e5")
+            b.vg_key("Return")
+            spec.assert_true(said_("d4 to e5, takes black pawn"), "the capture said")
+        }
+        spec.it("a promotion from the keyboard: q, r, b or n") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "SETPOSITION(\"7k/P7/8/8/8/8/8/K7 w - - 0 1\")")
+            spec.assert_true(said_("white to move"), "a position set: its state said")
+            _s2, _p2 = command_(key, "CURSOR(\"a7\")")
+            b.vg_key("Return")
+            b.vg_key("Up")
+            b.vg_key("Return")
+            spec.assert_true(said_("promote to: q queen, r rook, b bishop or n knight"), "asked which")
+            r0 = b.vg_a11y()
+            b.vg_key("x")
+            spec.assert_true(changed_(r0), "another key asks again")
+            spec.assert_contains(b.vg_a11y(), "\"announced\":\"promote to: q queen", "the same question")
+            b.vg_key("n")
+            spec.assert_true(b.wait_for_vg_a11y("\"announced\":\"a7 to a8, becomes a knight; a draw: neither side has the pieces to mate (1/2-1/2)\""), "a knight, and the draw it makes")
+            spec.assert_true(c.wait_moves("a8=N"), "a8=N")
+            _s3, sq = command_(key, "DESCRIBESQUARE(\"a8\")")
+            spec.assert_contains(sq, "\"result\":\"a8, white knight\"", "DESCRIBESQUARE")
+            _s4, bd = command_(key, "DESCRIBEBOARD()")
+            spec.assert_contains(bd, "8: a8 white knight, h8 black king; 7: empty", "DESCRIBEBOARD")
+        }
+        spec.it("flipped, up the screen is down the ranks") callback {
+            _u, key = courier_()
+            _s, _p = command_(key, "NEWGAME(); FLIPBOARD()")
+            spec.assert_true(c.wait_piece("e8", 1, "♚"), "black at the bottom")
+            _s2, _p2 = command_(key, "CURSOR(\"e4\")")
+            spec.assert_true(said_("e4, empty"), "e4")
+            b.vg_key("Up")
+            spec.assert_true(said_("e3, empty"), "up to e3, as black sees it")
+            b.vg_key("Right")
+            spec.assert_true(said_("d3, empty"), "right to d3")
+        }
+    }
+    return spec.run_summary(fw)
+}

@@ -42,10 +42,13 @@ app/
                     book.ts (the opening book: names, book moves),
                     clock.ts (clocks: a time control, the flag),
                     puzzle.ts (puzzles: mate in n, checked),
-                    chess960.ts (Chess960's start positions)
+                    chess960.ts (Chess960's start positions),
+                    speak.ts (the board in words, for a screen reader)
   chess/view/       the ui: view.ts (the states the panels read, refreshed
                     after every command), board.ts (the board in vg:
-                    click or drag to move), promotion.ts, sidebar.ts
+                    click or drag to move, or the keyboard alone: arrows,
+                    Return or Space, Escape; told to a screen reader
+                    through sae's ui.a11y_*), promotion.ts, sidebar.ts
                     (the status, what is taken, the move list),
                     toolbar.ts (the buttons and the menu bar, Open and
                     Save), analysis.ts (Analyse, Hint),

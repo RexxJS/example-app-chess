@@ -23,6 +23,7 @@ import { analysisOf, lineText } from "../analysis.ts";
 import { START_PIECES, fenOf } from "../setup.ts";
 import type { Turn } from "../setup.ts";
 import type { Thought } from "../think.ts";
+import { boardText, moveText, squareText } from "../speak.ts";
 
 /** What the board shows: a piece's FEN letter (or "") per square index 0-63, and the marks. */
 export interface Shown {
@@ -34,11 +35,18 @@ export interface Shown {
   readonly selected: number;        // the square picked to move from, or -1
   readonly targets: readonly number[];
   readonly dark: boolean;
+  readonly cursor: number;          // the keyboard's cursor (view.cursor), or -1 while it is not shown
+}
+
+/** Where the board is told to a screen reader (board.ts gives sae's ui.a11y_*): a line said now, and the board's name and description. */
+export interface Speaker {
+  announce(text: string): void;
+  name(label: string, description: string): void;
 }
 
 export class ChessView {
   readonly cmds: Commands;
-  readonly shown = state<Shown>({ pieces: [], flipped: false, lastFrom: -1, lastTo: -1, check: -1, selected: -1, targets: [], dark: false });
+  readonly shown = state<Shown>({ pieces: [], flipped: false, lastFrom: -1, lastTo: -1, check: -1, selected: -1, targets: [], dark: false, cursor: -1 });
   readonly game = state<State | null>(null);
   readonly status = state("");          // what the last command said
   /** A pawn's move to the last rank, waiting for the piece it becomes; null when none is. */
@@ -70,6 +78,11 @@ export class ChessView {
   /** Told the game's state after every refresh: the panels that rebuild themselves (looks.ts, board.ts's size). */
   readonly #watchers: ((s: State) => void)[] = [];
 
+  /** The board's screen reader (board.ts), or null with none (a headless test). */
+  speaker: Speaker | null = null;
+  /** What the speaker was last told: the game's key and ply, the cursor, the name and description. */
+  #spoken = { key: "", ply: 0, cursor: -1, label: "", description: "" };
+
   watch(fn: (s: State) => void): void {
     this.#watchers.push(fn);
   }
@@ -81,7 +94,8 @@ export class ChessView {
   /** Runs a command, says what it said, and shows the game again. */
   run(id: string, params: Params = {}): Outcome {
     const o = this.cmds.execute(id, params);
-    this.#selected = -1;
+    // The cursor moves with a piece picked: it is where the piece goes.
+    if (id !== "view.cursor") this.#selected = -1;
     if (id === "view.boardSize") this.fitBoard();
     this.refresh();
     this.status.set(o.message);
@@ -387,6 +401,98 @@ export class ChessView {
     return this.cmds.game.legalMoves().filter((m) => m.getCoordinate().startsWith(sq)).map((m) => getIndexFromAlgebraic(m.getCoordinate().slice(2, 4)));
   }
 
+  // ---- the board from the keyboard (TODO.md 6.6): board.ts hears the keys
+
+  #say(text: string): void {
+    if (text) this.speaker?.announce(text);
+  }
+
+  #pieces(): string[] {
+    const e = this.editing.value;
+    return e ? e.pieces : Array.from({ length: 64 }, (_, i) => this.cmds.game.pieceAt(i));
+  }
+
+  /**
+   * A key on the board: the arrows move the cursor across the board as it
+   * is shown (view.cursor, the square said); Return or Space picks the
+   * piece under it (its targets said) and, on a target, makes the move
+   * (said as it is made); Escape puts a piece picked back. While a
+   * promotion waits, q, r, b or n is its piece and Escape keeps the pawn.
+   */
+  key(k: string): void {
+    const step = ({ Left: "left", Right: "right", Up: "up", Down: "down" } as Record<string, string>)[k];
+    if (this.promoting.value) {
+      const piece = ({ q: "queen", r: "rook", b: "bishop", n: "knight" } as Record<string, string>)[k.toLowerCase()];
+      if (piece) this.promote(piece);
+      else if (k === "Escape") {
+        this.promote("");
+        this.#say("no promotion: the pawn stays");
+      } else this.#say("promote to: q queen, r rook, b bishop or n knight");
+      return;
+    }
+    if (step) {
+      this.run("view.cursor", { by: step });
+      return;
+    }
+    if (k === "Return" || k === "KP_Enter" || k === "space") {
+      this.pressCursor();
+      return;
+    }
+    if (k === "Escape") {
+      const from = this.#selected;
+      if (from < 0) return;
+      this.select(-1);
+      this.#say(`${getAlgebraicFromIndex(from)} put back`);
+    }
+  }
+
+  /** Return or Space on the board: the square under the cursor clicked, and what came of it said. */
+  pressCursor(): void {
+    const g = this.cmds.game;
+    if (!g.cursorShown) this.run("view.cursor");
+    const at = g.cursor, from = this.#selected, ply = g.made.length;
+    this.clickSquare(at);
+    if (this.editing.value) {
+      this.#say(squareText(this.editing.value.pieces, at));
+      return;
+    }
+    // A move made is said as the game shows it (refresh); a promotion waits for its piece.
+    if (this.promoting.value) {
+      this.#say("promote to: q queen, r rook, b bishop or n knight");
+      return;
+    }
+    if (g.made.length !== ply) return;
+    if (this.#selected === at && from !== at) {
+      const to = [...new Set(this.targetsOf(at).map(getAlgebraicFromIndex))].sort();
+      this.#say(`${squareText(this.#pieces(), at)}, picked: ${to.length ? `to ${to.join(", ")}` : "it has no move"}`);
+    } else if (from === at) this.#say(`${getAlgebraicFromIndex(at)} put back`);
+    else if (from >= 0 || this.#thought) this.#say(this.status.value);
+    else this.#say(`${squareText(this.#pieces(), at)}: no ${g.turn()} piece to move`);
+  }
+
+  // What changed, told the speaker: a move made ("e2 to e4"), else the game
+  // somewhere else (an undo, a new game: its status), else the cursor's
+  // square; and the board's name and description when they differ.
+  #speak(s: State, pieces: readonly string[], before: readonly string[]): void {
+    const sp = this.speaker;
+    if (!sp) return;
+    const g = this.cmds.game;
+    const key = g.key(), ply = s.sans.length, editing = this.editing.value !== null;
+    const was = this.#spoken;
+    let say = "";
+    if (was.key && key !== was.key && !editing) {
+      if (ply === was.ply + 1 && s.lastMove && before.length === 64) {
+        say = moveText(before, s.lastMove, s.sans[ply - 1]);
+        if (g.isOver() && !s.sans[ply - 1].endsWith("#")) say = `${say}; ${s.statusText}`;
+      } else say = s.statusText;
+    } else if (s.cursor >= 0 && s.cursor !== was.cursor) say = squareText(pieces, s.cursor);
+    const label = `Chess board, ${editing ? "being set up" : s.statusText}`;
+    const description = `${s.cursor >= 0 ? `Cursor on ${squareText(pieces, s.cursor)}. ` : ""}${boardText(pieces)}`;
+    if (label !== was.label || description !== was.description) sp.name(label, description);
+    this.#spoken = { key, ply, cursor: s.cursor, label, description };
+    if (say) sp.announce(say);
+  }
+
   // ---- the clocks (clock.ts)
 
   /** The clocks charged to now (the page's timer, a few times a second): shown, and the game ended when a flag falls. */
@@ -411,6 +517,7 @@ export class ChessView {
     const kept = this.cmds.execute("game.kept").output as string[];
     const clock = this.cmds.clock ? clockLine(this.cmds.clock.state()) : "Clocks: none";
     const puzzle = puzzleLine(this.cmds.puzzles.state());
+    const before = this.shown.value.pieces;
     batch(() => {
       if (this.puzzle.value !== puzzle) this.puzzle.set(puzzle);
       if (this.clock.value !== clock) this.clock.set(clock);
@@ -420,8 +527,10 @@ export class ChessView {
         pieces, flipped: s.flipped,
         lastFrom: last ? getIndexFromAlgebraic(last.slice(0, 2)) : -1, lastTo: last ? getIndexFromAlgebraic(last.slice(2, 4)) : -1,
         check: king, selected: this.#selected, targets: this.#selected >= 0 ? this.targetsOf(this.#selected) : [], dark: s.dark,
+        cursor: s.cursor,
       });
     });
+    this.#speak(s, pieces, before);
     for (const fn of this.#watchers) fn(s);
     this.cmds.autosave();
     this.#followGame();

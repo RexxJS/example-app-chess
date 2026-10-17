@@ -23,6 +23,8 @@ import { lineOf, parseLine } from "./line.ts";
 import type { Params } from "./line.ts";
 import { Move } from "./move.ts";
 import { runChess, runScript } from "./script.ts";
+import { STEPS, squareText, stepFrom } from "./speak.ts";
+import type { Step } from "./speak.ts";
 import type { ScriptHost } from "./script.ts";
 
 export interface Outcome {
@@ -363,6 +365,28 @@ export const SPECS: readonly Spec[] = [
       if (p.on !== undefined && !/^(0|1|on|off|true|false|yes|no)$/i.test(p.on.trim())) refuse(`${p.on} is not on or off (1 or 0)`);
       game.dark = p.on === undefined ? !game.dark : /^(1|on|true|yes)$/i.test(p.on.trim());
       return { ok: true, message: game.dark ? "dark mode" : "light mode", output: game.dark ? 1 : 0 };
+    },
+  },
+  {
+    id: "view.cursor", label: "Board cursor", params: [], optional: ["square", "by"], journaled: false,
+    // The keyboard's cursor on the board (the page's arrows, Return, Escape:
+    // view/keyboard.ts): square= puts it on a square, by= steps it up,
+    // down, left or right across the screen (as the board is turned); with
+    // neither it stays. Shown from then on. Gives the square in words.
+    run: (game, p) => {
+      if (p.square !== undefined) {
+        const i = getIndexFromAlgebraic(p.square.trim().toLowerCase());
+        if (i < 0) refuse(`${p.square} is not a square (a1 to h8)`);
+        game.cursor = i;
+      }
+      if (p.by !== undefined) {
+        const step = p.by.trim().toLowerCase() as Step;
+        if (!STEPS.includes(step)) refuse(`${p.by} is not a step (up, down, left or right)`);
+        game.cursor = stepFrom(game.cursor, step, game.flipped);
+      }
+      game.cursorShown = true;
+      const text = squareText(Array.from({ length: 64 }, (_, i) => game.pieceAt(i)), game.cursor);
+      return { ok: true, message: text, output: text };
     },
   },
   {

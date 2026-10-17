@@ -106,6 +106,11 @@ export const DESCRIBED: Readonly<Record<string, Described>> = {
   FLIPBOARD: fn([], "Turns the board round: black at the bottom, or white again", "1 when black is at the bottom, else 0"),
   BOARDSIZE: fn([opt("px", "number", "240 to 960, which the board then keeps; \"fit\": it follows the window again; left out: the size it is")], "Sets the board's size on the page, in pixels; by itself the board follows the window, the largest square there is room for", "the size, in pixels"),
   DARKMODE: fn([opt("on", "flag", "1: dark, 0: light; left out: the other one")], "The page's dark look, or the light", "1 when dark, else 0"),
+  // ---- the board in words (a screen reader's; the page's keyboard cursor)
+  DESCRIBESQUARE: fn([p("square", "square")], "A square and what stands on it, as a screen reader says it", "e.g. \"e4, white knight\" or \"e5, empty\""),
+  DESCRIBEBOARD: fn([], "The position in words, rank by rank from the 8th, each piece by its square (what the page gives a screen reader as the board's description)", "e.g. \"8: a8 black rook, b8 black knight, ...; 6: empty; ...\""),
+  CURSOR: fn([opt("at", "text", "a square, \"e4\", or a step across the board as it is shown: up, down, left or right; left out: where it is")],
+    "The page's keyboard cursor on the board (the arrows move it, Return or Space picks the piece under it and puts it down on a target, Escape puts it back): moved, shown, and the square announced to a screen reader", "the square in words, e.g. \"e4, white knight\""),
   // ---- the app
   CHESS_VERSION: fn([], "The app's version", "e.g. \"sae chess\""),
   LISTCOMMANDS: fn([opt("described", "flag", "1: each with its parameters, what it does and what it gives")], "The functions a script may call", "a stem of names, or of {name, signature, params, does, gives}"),

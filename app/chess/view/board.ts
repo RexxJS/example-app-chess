@@ -5,6 +5,9 @@
 // `shown` state, so a refresh redraws only what changed. A press on a
 // piece picks it and dots its targets; a press on a target, or the piece
 // dragged and let go over one, moves (ChessView.clickSquare, dropOn).
+// From the keyboard, the arrows move a cursor (an outline), Return or
+// Space picks and puts down, Escape puts back (ChessView.key), and a
+// screen reader is told the board, its squares and its moves (speak.ts).
 //
 // The scene's viewBox is 0 0 88 88: a 4-unit margin for the coordinates,
 // and squares of 10 from (4, 4) to (84, 84). A square on screen is at
@@ -16,6 +19,8 @@ import type { ChessView, Shown } from "./view.ts";
 export const VIEW = 88;
 export const MARGIN = 4;
 export const SQUARE = 10;
+/** The cursor's frame, in viewBox units. */
+export const CURSOR_WIDTH = 1.2;
 
 /** The board's colours in the light look; DARK_COLOURS in the dark. */
 export const COLOURS = {
@@ -26,6 +31,7 @@ export const COLOURS = {
   check: "#e05050",
   selected: "#7fb3d5",
   target: "#3a7d44",
+  cursor: "#1f5fbf",
   frame: "#8b6b4a",
   coordinate: "#f4ecd8",
   piece: "#111111",
@@ -39,6 +45,7 @@ export const DARK_COLOURS: { readonly [K in keyof typeof COLOURS]: string } = {
   check: "#c04040",
   selected: "#5f8fb5",
   target: "#2a5d34",
+  cursor: "#9cc7ff",
   frame: "#202428",
   coordinate: "#c8ccd0",
   piece: "#0a0a0a",
@@ -78,6 +85,22 @@ export function boardPanel(v: ChessView): void {
   let size = v.cmds.game.boardSize;
   let board = 0;
   ui.vstack(() => { board = scene(v, size); });
+  // To a screen reader the board is one element (sae's ui.a11y_* on the
+  // scene): named for the game's state, described square by square, and
+  // told each move and each square the keyboard's cursor reaches; the
+  // keys on it play (ChessView.key: arrows, Return or Space, Escape).
+  ui.a11y_role(board, "group");
+  v.speaker = {
+    announce: (text: string) => {
+      ui.a11y_announce(board, text);
+      print(`chess: said ${text}`);
+    },
+    name: (label: string, description: string) => {
+      ui.a11y_label(board, label);
+      ui.a11y_description(board, description);
+    },
+  };
+  vg.on_key(board, (k: string) => v.key(k));
   v.watch((s) => {
     if (s.boardSize === size) return;
     size = s.boardSize;
@@ -122,6 +145,21 @@ function scene(v: ChessView, px: number): number {
         });
       }
     }
+    // The keyboard's cursor: a frame round its square, once the keys have
+    // moved it (four strips, so it scales with the board as a stroke would not).
+    vg.g(() => {
+      vg.bind_transform(() => {
+        const at = shown().cursor;
+        const c = at < 0 ? 0 : shown().flipped ? 7 - (at % 8) : at % 8;
+        const r = at < 0 ? 0 : shown().flipped ? Math.floor(at / 8) : 7 - Math.floor(at / 8);
+        return `translate(${c * SQUARE} ${r * SQUARE})`;
+      });
+      vg.visible_when(() => shown().cursor >= 0);
+      const t = CURSOR_WIDTH;
+      for (const [cx, cy, w, h] of [[0, 0, SQUARE, t], [0, SQUARE - t, SQUARE, t], [0, 0, t, SQUARE], [SQUARE - t, 0, t, SQUARE]]) {
+        vg.rect(MARGIN + cx, MARGIN + cy, w, h, () => vg.bind_fill(() => paletteOf(shown()).cursor));
+      }
+    });
     // The files along the bottom and the ranks down the left, as the flip has them.
     for (let i = 0; i < 8; ++i) {
       vg.text_anchored(MARGIN + i * SQUARE + SQUARE / 2, VIEW - 0.8, 3, "middle", "", () => {
