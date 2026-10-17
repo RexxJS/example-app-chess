@@ -11,13 +11,12 @@ in stages, each step one tested commit: [TODO.md](TODO.md).
 
 | Folder | What it is | Licence |
 |---|---|---|
-| [`app/`](app/) | **The chess app, current.** A sae app in sae's TypeScript dialect: `app.json` (its manifest), `chess.ts` (the page), `chess/` (the game with no ui: the engine ported from `src/`, then the game, its commands and its REXX functions). | MIT |
+| [`app/`](app/) | **The chess app, current.** A sae app in sae's TypeScript dialect: `app.json` (its manifest), `chess.ts` (the page), `chess/` (the game with no ui: the engine ported from the old app's `src/`, then the game, its commands and its REXX functions). | MIT |
 | [`CHESS_COMMANDS.md`](CHESS_COMMANDS.md) | **The REXX reference**: every function, the old `ADDRESS CHESS` lines, the control bus and the MCP server; generated from `app/chess/described.ts` by `tools/gen-commands.mjs`, so it cannot drift. | MIT |
 | [`rexx/`](rexx/) | REXX scripts that drive the running app over sae's control bus (`ADDRESS CHESS`, `rexx/chess-address.js`, run by RexxJS's CLI): the old iframe demo's scripts and a game by the control functions. | MIT |
 | [`mcp/`](mcp/) | An MCP server: an AI client plays and drives the running app over the control bus (`chess_move`, `chess_board`, `chess_call`, `chess_run_program`, `chess_list_commands`; `--tools=json\|rexx\|all`). | MIT |
 | [`app/native/`](app/native/), [`native/`](native/) | **The engine in Aether** (`app/native/engine.ae`, TODO.md 4.4): the same moves, node for node, as `app/chess/ai.ts`, compiled; a sae native module the page calls as `natives.engine.search` on the app's own sae (`../sae/tools/saehost.sh app`; sae's `docs/natives.md`), and `native/cli.ae` the program (`perft`, `search`, `bench`) `tests/native/check.sh` runs. | MIT, Kaj Björklund 2013 (a port) |
 | [`tests/`](tests/) | `headless/` (the model, on sae's lowerer harness), `specs/` (the page, through sae-driver), `lib/` (the specs' driver verbs). | MIT |
-| `src/`, `chess.html`, `chess.css`, `src-tauri/`, `chess-controlbus-demo.html`, `dist/` | **The old DOM app**, as it was: the engine in plain JavaScript, a jQuery board, the `ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri wrapper and an iframe control bus ([docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md); the old `CHESS_COMMANDS.md` is in history before 2.7 of TODO.md). It stays until the sae app has taken in what it did, then goes to history. | MIT |
 
 ## The sae app
 
@@ -125,7 +124,13 @@ changes to it go there first.
 
 ## The old app
 
-The engine's files in `src/` are described in the old README's terms:
+The old DOM app (the engine in plain JavaScript, a jQuery board, the
+`ADDRESS CHESS` handler and in-app script runner, a webpack build, a Tauri
+wrapper and an iframe control bus: [docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md))
+went to history once the sae app had taken in all it did (TODO.md, rule
+5); `git show e32f320:src/chess.js` and its neighbours are the last of it, the
+old `CHESS_COMMANDS.md` is in history before 2.7 of TODO.md. Its engine's
+files in `src/` were, in the old README's terms:
 `chess.js` (constants and utilities), `bitboard.js` (64-bit bit twiddling as
 two 32-bit halves), `zobrist.js` (the position hash), `move.js` (a move),
 `position.js` (the game state, move generation, make and unmake),
@@ -133,7 +138,7 @@ two 32-bit halves), `zobrist.js` (the position hash), `move.js` (a move),
 evaluation), `ui.js` (the jQuery board), `test.js` (QUnit tests, run by
 `src/test.html`). `build/compile.sh` minified it with the Closure compiler
 to `chess.min.js`; `webpack.config.js` and `src-tauri/` wrap it for Tauri;
-`npm run build` builds `dist/`. The old README's to-do list (static
+`npm run build` built `dist/`. The old README's to-do list (static
 exchange evaluation, a transposition table, iterative deepening, killer
 moves, underpromotion, captured pieces shown, loading a game from notation)
 is folded into [TODO.md](TODO.md)'s stages 3 to 5.
@@ -143,5 +148,5 @@ is folded into [TODO.md](TODO.md)'s stages 3 to 5.
 MIT ([LICENSING.md](LICENSING.md)). The engine is Kaj Björklund's, copyright
 2013, and its ports keep that ([LICENSE](LICENSE)); the sae app and its
 tests are the Aether contributors'. The old app's
-third-party pieces (jQuery, jQuery UI, Touch Punch, QUnit) are MIT and are
-not part of the sae app.
+third-party pieces (jQuery, jQuery UI, Touch Punch, QUnit) were MIT and were
+never part of the sae app.

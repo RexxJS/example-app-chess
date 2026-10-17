@@ -44,7 +44,11 @@ first.
    command names.** jQuery, webpack, Tauri and the iframe bus go when the
    sae app has taken in what they did (the spreadsheet did the same:
    `tauri/` deleted, history keeps it). The MIT licence and Kaj
-   Björklund's copyright stay with the engine.
+   Björklund's copyright stay with the engine. (Done 2026-10-17, with
+   every step taken in: `src/`, `chess.html`, `chess.css`, `chess.min.js`,
+   `chess-controlbus-demo.html`, `dist/`, `build/`, `src-tauri/`,
+   webpack's and npm's files and the old Playwright spec deleted; history
+   keeps them, last at e32f320.)
 
 ## Stage 0: the shape of the repository
 

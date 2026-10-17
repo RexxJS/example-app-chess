@@ -8,9 +8,9 @@ when done. The record of what came before it (the Tauri wrapper, the
 [docs/tauri-rexxjs-phases-done.md](docs/tauri-rexxjs-phases-done.md).
 
 - **`app/` is where the work is.** The old DOM app (`src/`, `chess.html`,
-  webpack, `src-tauri/`, `chess-controlbus-demo.html`) stays in place until
-  the sae app has taken in what it did (TODO.md, rule 5); it is not to be
-  extended. Only the engine's logic (`src/chess.js`, `bitboard.js`,
+  webpack, `src-tauri/`, `chess-controlbus-demo.html`) went to history on
+  2026-10-17, once the sae app had taken in what it did (TODO.md, rule 5);
+  `git show e32f320:src/<file>` reads it. Only the engine's logic (`src/chess.js`, `bitboard.js`,
   `zobrist.js`, `move.js`, `position.js`, `parser.js`, later `ai.js`) is
   ported, to `app/chess/*.ts`; the jQuery ui, webpack and Tauri are not.
   Each ported file's header names its origin and keeps Kaj Björklund's

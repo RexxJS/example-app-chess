@@ -2,8 +2,9 @@ The MIT License (MIT)
 
 Copyright (c) 2013 Kaj Björklund
     the chess engine: src/chess.js, bitboard.js, zobrist.js, move.js,
-    position.js, parser.js, ai.js, ui.js and test.js, and their ports
-    under app/chess/ (each port's header names its origin)
+    position.js, parser.js, ai.js, ui.js and test.js (the old app, in
+    history), and their ports under app/chess/ and app/native/ (each
+    port's header names its origin)
 Copyright (c) 2026 Aether Contributors collectively
     the sae app and its tests: app/ (but for the ports above and the
     vendored RexxJS), tests/, tools/, docs/, run-tests.sh
